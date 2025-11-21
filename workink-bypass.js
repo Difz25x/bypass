@@ -2,9 +2,9 @@
     'use strict';
 
     const host = location.hostname;
-    const defaultTime = 30;
+    const defaultTime = 21;
     const normalTime = 60;
-    const ver = "1.0.6.7";
+    const ver = "1.0.6.8";
 
     let currentLanguage = localStorage.getItem('lang') || 'en';
     let currentTime = localStorage.getItem('waitTime') || defaultTime;
@@ -15,13 +15,13 @@
             title: "DIFZ25X BYPASS",
             pleaseSolveCaptcha: "Vui lòng hoàn thành CAPTCHA để tiếp tục",
             captchaSuccess: "CAPTCHA đã được xác minh thành công",
-            redirectingToWork: "Đang chuyển hướng đến Work.ink...",
+            redirectingToDest: "Đang chuyển hướng đến đích...",
             bypassSuccessCopy: "Bypass thành công! Khóa đã được sao chép",
             bypassSuccess: "Bỏ qua thành công, đang chờ {time}s...",
             backToCheckpoint: "Đang quay lại điểm kiểm tra...",
             captchaSuccessBypassing: "CAPTCHA đã thành công, đang tiến hành bypass...",
             expiredLink: "Liên kết của bạn không hợp lệ hoặc đã hết hạn",
-            bypassingSocials: "Bỏ qua mạng xã hội... tự động tải lại cho đến khi hoàn tất, {left} hơn!",
+            bypassingSocials: "Bỏ qua mạng xã hội... tự động tải lại cho đến khi hoàn tất!",
             version: `Phiên bản ${ver}`,
             madeBy: "Được tạo bởi Difz25x",
             timeSaved: "THỜI GIAN TIẾT KIỆM",
@@ -35,13 +35,13 @@
             title: "DIFZ25X BYPASS",
             pleaseSolveCaptcha: "Please complete the CAPTCHA to continue",
             captchaSuccess: "CAPTCHA solved successfully",
-            redirectingToWork: "Redirecting to Work.ink...",
+            redirectingToDest: "Redirecting to Destination...",
             bypassSuccessCopy: "Bypass successful! Key copied",
             bypassSuccess: "Bypass successful, waiting {time}s...",
             backToCheckpoint: "Returning to checkpoint...",
             captchaSuccessBypassing: "CAPTCHA solved successfully, bypassing...",
             expiredLink: "Your link is invalid or expired",
-            bypassingSocials: "Bypassing socials... auto-reload active until complete, {left} more!",
+            bypassingSocials: "Bypassing socials... auto-reload active until complete!",
             version: `Version ${ver}`,
             madeBy: "Made by Difz25x",
             timeSaved: "TIME SAVED",
@@ -55,13 +55,13 @@
             title: "DIFZ25X BYPASS",
             pleaseSolveCaptcha: "Harap lengkapi CAPTCHA untuk melanjutkan",
             captchaSuccess: "CAPTCHA berhasil diselesaikan",
-            redirectingToWork: "Mengalihkan ke Work.ink...",
+            redirectingToDest: "Mengalihkan ke Tujuan...",
             bypassSuccessCopy: "Bypass berhasil! Kunci disalin",
             bypassSuccess: "Bypass berhasil, menunggu {time}d...",
             backToCheckpoint: "Kembali ke checkpoint...",
             captchaSuccessBypassing: "CAPTCHA berhasil diselesaikan, melewati...",
             expiredLink: "Tautan Anda tidak valid atau kedaluwarsa",
-            bypassingSocials: "Melewati media sosial...muat ulang otomatis aktif hingga selesai, {left} lagi!",
+            bypassingSocials: "Melewati media sosial...muat ulang otomatis aktif hingga selesai!",
             version: `Versi ${ver}`,
             madeBy: "Dibuat oleh Difz25x",
             timeSaved: "WAKTU TERSIMPAN",
@@ -700,7 +700,7 @@
                                 setTimeout(() => {
                                     try {
                                         currentBtn.click();
-                                        if (currentPanel) currentPanel.show('redirectingToWork', 'info');
+                                        if (currentPanel) currentPanel.show('redirectingToDest', 'info');
                                     } catch (err) {
                                         setTimeout(actOnCheckpoint, 1000)
                                     }
@@ -766,7 +766,6 @@
         }
     }
 
-
     // Handler for WORK.INK
     function handleWorkInk() {
         if (panel) panel.show('pleaseSolveCaptcha', 'info');
@@ -778,7 +777,6 @@
         let bypassTriggered = false;
         let destinationReceived = false;
         let destinationProcessed = false;
-        let socialCheckInProgress = false;
 
         const map = {
             onLI: ["onLinkInfo"],
@@ -856,13 +854,11 @@
                 return;
             }
 
-            console.log('[Debug] spoof Workink starting, linkInfo:', LinkInfo);
 
             const socials = LinkInfo.socials || [];
-            console.log('[Debug] Total socials to fake:', socials.length);
 
             if (socials.length > 0) {
-                if (panel) panel.show('bypassingSocials', 'warning', { left: socials.length });
+                if (panel) panel.show('bypassingSocials', 'warning');
 
                 (async () => {
                     for (let i = 0; i < socials.length; i++) {
@@ -872,48 +868,37 @@
                                 const payload = { url: soc.url };
 
                                 if (sessionController.websocket && sessionController.websocket.readyState === WebSocket.OPEN) {
-                                    console.log(`[Debug] WebSocket open, sending social [${i + 1}/${socials.length}]`);
 
                                     sendMessage.call(sessionController, types.ss, payload);
 
-                                    console.log(`[Debug] Social [${i + 1}/${socials.length}] sent successfully`);
                                 } else {
-                                    console.error(`[Debug] WebSocket not ready! State:`, sessionController.websocket?.readyState);
                                     await new Promise(resolve => setTimeout(resolve, 1000));
                                     i--;
                                     continue;
                                 }
                             } else {
-                                console.warn(`[Debug] sendMessage or sessionController is null`, { sendMessage, sessionController });
                             }
                         } catch (e) {
-                            console.error(`[Debug] Error sending social [${i + 1}/${socials.length}]:`, e);
                         }
                     }
 
-                    console.log('[Debug] All socials sent, reloading page...');
                     setTimeout(() => {
-                        console.log('[Debug] Reloading page after social spoof...');
                         window.location.reload();
                     }, 1000);
                 })();
             } else {
-                console.log('[Debug] No socials to send, processing monetizations directly...');
                 handleMonetizations();
             }
 
             async function handleMonetizations() {
                 const monetizations = sessionController?.monetizations || [];
-                console.log('[Debug] Total monetizations to fake:', monetizations.length);
 
                 for (let i = 0; i < monetizations.length; i++) {
                     const monetization = monetizations[i];
-                    console.log(`[Debug] Processing monetization [${i+1}/${monetizations.length}]:`, monetization);
                     const monetizationId = monetization.id;
                     const monetizationSendMessage = monetization.sendMessage;
 
                     if (!monetizationSendMessage) {
-                        console.log(`[Debug] Skipping monetization [${i+1}/${monetizations.length}]: no sendMessage function`);
                         continue;
                     }
 
@@ -921,7 +906,6 @@
                         switch (monetizationId) {
                             case 22: {
                                 monetizationSendMessage.call(monetization, { event: 'read' });
-                                console.log(`[Debug] Faked readArticles2 [${i+1}/${monetizations.length}]`);
                                 break;
                             }
                             case 25: {
@@ -940,42 +924,34 @@
                                         })
                                     });
                                 }, 5000);
-                                console.log(`[Debug] Faked operaGX [${i+1}/${monetizations.length}]`);
                                 break;
                             }
                             case 34: {
                                 monetizationSendMessage.call(monetization, { event: 'start' });
                                 monetizationSendMessage.call(monetization, { event: 'installedClicked' });
-                                console.log(`[Debug] Faked norton [${i+1}/${monetizations.length}]`);
                                 break;
                             }
                             case 71: {
                                 monetizationSendMessage.call(monetization, { event: 'start' });
                                 monetizationSendMessage.call(monetization, { event: 'installed' });
-                                console.log(`[Debug] Faked externalArticles [${i+1}/${monetizations.length}]`);
                                 break;
                             }
                             case 45: {
                                 monetizationSendMessage.call(monetization, { event: 'installed' });
-                                console.log(`[Debug] Faked pdfeditor [${i+1}/${monetizations.length}]`);
                                 break;
                             }
                             case 57: {
                                 monetizationSendMessage.call(monetization, { event: 'installed' });
-                                console.log(`[Debug] Faked betterdeals [${i+1}/${monetizations.length}]`);
                                 break;
                             }
                             default: {
-                                console.log(`[Debug] Unknown monetization [${i+1}/${monetizations.length}]:`, monetization);
                                 break;
                             }
                         }
                     } catch (e) {
-                        console.error(`[Debug] Error faking monetization [${i+1}/${monetizations.length}]:`, monetization, e);
                     }
                 }
 
-                console.log('[Debug] spoof Workink completed');
             }
         }
 
@@ -986,8 +962,16 @@
                 if (packet_type !== types.pi) {
                     console.log('[Debug] Message sent:', packet_type, packet_data);
                 }
-                if (packet_type === types.tr) {
-                    triggerBypass('tr');
+                const captchaResponses = [
+                    types.tr,
+                    types.hr,
+                    types.rr
+                ]
+                for (let i = 0; i < captchaResponses.length; i++){
+                    const captchaResponse = captchaResponses[i]
+                    if (packet_type === captchaResponse) {
+                        triggerBypass('captcha');
+                    }
                 }
                 return sendMessage.apply(this, args);
             };
@@ -996,7 +980,7 @@
         function createLinkInfo() {
             return async function (...args) {
                 const [info] = args;
-                LinkInfo = info
+                LinkInfo = info;
                 console.log('[Debug] Link info:', info);
                 spoofWorkink();
                 try {
@@ -1022,7 +1006,6 @@
             const interval = setInterval(() => {
                 waitLeft -= 1;
                 if (waitLeft > 0) {
-                    console.log('[Debug] startCountdown: Time remaining:', waitLeft);
                     if (panel) panel.show('bypassSuccess', 'warning', { time: Math.ceil(waitLeft) });
                 } else {
                     clearInterval(interval);
@@ -1149,12 +1132,13 @@
             Promise.all = async function (promises) {
                 const result = origPromiseAll.call(this, promises);
                 if (!intercepted) {
-                    intercepted = true;
                     return await new Promise((resolve) => {
                         result.then(([kit, app, ...args]) => {
                             const [success, created] = createKitProxy(kit);
                             if (success) {
+                                intercepted = true;
                                 Promise.all = origPromiseAll;
+                                console.log('[Debug]: Kit ready', created, app);
                             }
                             resolve([created, app, ...args]);
                         });
@@ -1192,22 +1176,18 @@
                         blockedClasses.forEach((cls) => {
                             if (node.classList?.contains(cls)) {
                                 node.remove();
-                                console.log('[Debug]: Removed ad by class:', cls, node);
                             }
                             node.querySelectorAll?.(`.${CSS.escape(cls)}`).forEach((el) => {
                                 el.remove();
-                                console.log('[Debug]: Removed nested ad by class:', cls, el);
                             });
                         });
 
                         blockedIds.forEach((id) => {
                             if (node.id === id) {
                                 node.remove();
-                                console.log('[Debug]: Removed ad by id:', id, node);
                             }
                             node.querySelectorAll?.(`#${id}`).forEach((el) => {
                                 el.remove();
-                                console.log('[Debug]: Removed nested ad by id:', id, el);
                             });
                         });
 
