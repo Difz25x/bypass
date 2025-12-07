@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.0.0.0
 // @description  Bypass Volcano and Work.ink links with unified panel
-// @author       Nadhif
+// @author       Difz25x
 // @match        https://key.volcano.wtf/*
 // @match        https://work.ink/*
 // @run-at       document-start
