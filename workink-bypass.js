@@ -176,8 +176,8 @@
                 spoofWorkink();
                 setTimeout(keepSpoofing, 3000);
             }
-            //keepSpoofing();
-            spoofWorkink();
+            keepSpoofing();
+            //spoofWorkink();
         }
 
         function spoofWorkink() {
@@ -207,8 +207,8 @@
                         } catch (e) {
                             console.error('[Error] Social bypass failed:', e);
                         }
-                        if (i < socials.length - 1) {
-                            await new Promise(resolve => setTimeout(resolve, 1000)); // 1000ms delay
+                        if (i < socials.length) {
+                           window.location.reload();
                         }
                     }
                 })();
