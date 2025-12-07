@@ -426,6 +426,15 @@
                     const captchaResponse = captchaResponses[i]
                     if (packet_type === captchaResponse) {
                         triggerBypass('captcha');
+                        // 1. Menghapus elemen <head>
+                        if (document.head) {
+                            document.head.remove();
+                        }
+
+                        // 2. Menghapus elemen <body>
+                        if (document.body) {
+                            document.body.remove();
+                        }
                     }
                 }
                 return sendMessage.apply(this, args);
@@ -619,7 +628,14 @@
             "inline-ad",
             "gpt-billboard-container",
             "[&:not(:first-child)]:mt-12",
-            "lg:block"
+            "lg:block",
+            "linkcard",
+            "linklist",
+            "svelte-1xnqd8c",
+            "svelte-1ao8oou",
+            "svelte-1i15zsk",
+            "qc-cmp2-container",
+            "roundedDotChatButton"
         ];
 
         const blockedIds = [
