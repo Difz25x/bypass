@@ -4,100 +4,7 @@
     const host = location.hostname;
     const defaultTime = 21;
 
-    if (host.includes("key.volcano.wtf")) handleVolcano();
     else if (host.includes("work.ink")) handleWorkInk();
-
-    // Handler for VOLCANO
-    function handleVolcano() {
-
-        let alreadyDoneContinue = false;
-        let alreadyDoneCopy = false;
-
-        function actOnCheckpoint(node) {
-            if (!alreadyDoneContinue) {
-                const buttons = node && node.nodeType === 1
-                    ? node.matches('#primaryButton[type="submit"], button[type="submit"], a, input[type=button], input[type=submit]')
-                        ? [node]
-                        : node.querySelectorAll('#primaryButton[type="submit"], button[type="submit"], a, input[type=button], input[type=submit]')
-                    : document.querySelectorAll('#primaryButton[type="submit"], button[type="submit"], a, input[type=button], input[type=submit]');
-                for (const btn of buttons) {
-                    const text = (btn.innerText || btn.value || "").trim().toLowerCase();
-                    if (text.includes("continue") || text.includes("next step")) {
-                        const disabled = btn.disabled || btn.getAttribute("aria-disabled") === "true";
-                        const style = getComputedStyle(btn);
-                        const visible = style.display !== "none" && style.visibility !== "hidden" && btn.offsetParent !== null;
-                        if (visible && !disabled) {
-                            alreadyDoneContinue = true;
-
-                            for (const btn of buttons) {
-                                const currentBtn = btn;
-
-                                setTimeout(() => {
-                                    try {
-                                        currentBtn.click();
-                                    } catch (err) {
-                                        setTimeout(actOnCheckpoint, 1000)
-                                    }
-                                }, 300);
-                            }
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            const copyBtn = node && node.nodeType === 1
-                ? node.matches("#copy-key-btn, .copy-btn, [aria-label='Copy']")
-                    ? node
-                    : node.querySelector("#copy-key-btn, .copy-btn, [aria-label='Copy']")
-                : document.querySelector("#copy-key-btn, .copy-btn, [aria-label='Copy']");
-            if (copyBtn) {
-                setInterval(() => {
-                    try {
-                        copyBtn.click();
-                    } catch (err) {
-                        copyBtn.click();
-                    }
-                }, 500);
-                return true;
-            }
-
-            return false;
-        }
-
-        const mo = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                if (mutation.type === 'childList') {
-                    for (const node of mutation.addedNodes) {
-                        if (node.nodeType === 1) {
-                            if (actOnCheckpoint(node)) {
-                                if (alreadyDoneCopy) {
-                                    mo.disconnect();
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
-                if (mutation.type === 'attributes' && mutation.target.nodeType === 1) {
-                    if (actOnCheckpoint(mutation.target)) {
-                        if (alreadyDoneCopy) {
-                            mo.disconnect();
-                            return;
-                        }
-                    }
-                }
-            }
-        });
-
-        mo.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'aria-disabled', 'style'] });
-
-        if (actOnCheckpoint()) {
-            if (alreadyDoneCopy) {
-                mo.disconnect();
-            }
-        }
-    }
 
     function handleWorkInk() {
 
@@ -438,6 +345,9 @@
             return async function (...args) {
                 const [info] = args;
                 console.log('[Debug] Link info:', info);
+                if (sessionController.linkInfo.socials.length > 0){
+                    spoofWorkink();
+                }
                 try {
                     Object.defineProperty(info, 'isAdblockEnabled', {
                         get: () => false,
