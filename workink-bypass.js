@@ -174,7 +174,7 @@
                     return;
                 }
                 spoofWorkink();
-                setTimeout(keepSpoofing, 3000);
+                setTimeout(keepSpoofing, 5000);
             }
             keepSpoofing();
             //spoofWorkink();
@@ -409,6 +409,79 @@
                 return new Promise(resolve => setTimeout(resolve, ms));
             }
         }
+        let totalDiv = 0;
+        let isInGoogle = false;
+
+        function clickGTDButton() {
+            const GTDiv = document.querySelector('div.button.large.accessBtn.pos-relative.svelte-11ncrz');
+            if (!GTDiv) {
+                console.log('GTD Button not found, retrying clickGTDButton...')
+                setTimeout(clickGTDButton, 100);
+                return;
+            }
+
+            if (totalDiv >= 3) {
+                console.log("Maximum clicks reached. Stopping.");
+                return;
+            }
+
+            const disabled = GTDiv.classList.contains("button-disabled");
+            if (disabled) {
+                GTDiv.classList.remove("button-disabled");
+            }
+
+            try {
+                console.log(`Clicking GTDiv. Current totalDiv: ${totalDiv}`);
+                GTDiv.click();
+                totalDiv++;
+            } catch (e) {
+                console.log("Error in GTDiv click", e);
+            }
+
+            checkAccessOptionsDiv();
+            checkModalDiv();
+            checkGoogleDiv();
+        }
+
+        function checkAccessOptionsDiv() {
+            const selector = 'div.bg-white.rounded-2xl.w-full.max-w-md.relative.shadow-2xl.animate-fade-in';
+            const accessOptionsDiv = document.querySelector(selector);
+
+            if (accessOptionsDiv) {
+                console.log('Access Options Div found. Removing and clicking next.');
+                accessOptionsDiv.remove();
+                clickGTDButton();
+                return;
+            }
+            setTimeout(checkAccessOptionsDiv, 100);
+        }
+
+        function checkModalDiv() {
+            const selector = 'div.fixed.inset-0.bg-black\\/50.backdrop-blur-sm.flex.items-center.justify-center.p-4.main-modal.svelte-9kfsb0';
+            const modalDiv = document.querySelector(selector);
+
+            if (modalDiv) {
+                console.log('Modal Div found. Removing and clicking next.');
+                modalDiv.remove();
+                clickGTDButton();
+                return;
+            }
+            setTimeout(checkModalDiv, 100);
+        }
+
+        function checkGoogleDiv() {
+            const selector = 'div.fixed.top-16.left-0.right-0.bottom-0.bg-white.z-40.overflow-y-auto';
+            const googleDiv = document.querySelector(selector);
+
+            if (googleDiv) {
+                console.log('Google Div found. Removing and bypassing captcha.');
+                googleDiv.remove();
+                isInGoogle = true;
+                triggerBypass('captcha');
+                return;
+            }
+            setTimeout(checkGoogleDiv, 100);
+        }
 
         function createSendMessage() {
             return function (...args) {
@@ -425,16 +498,7 @@
                 for (let i = 0; i < captchaResponses.length; i++){
                     const captchaResponse = captchaResponses[i]
                     if (packet_type === captchaResponse) {
-                        triggerBypass('captcha');
-                        // 1. Menghapus elemen <head>
-                        if (document.head) {
-                            document.head.remove();
-                        }
-
-                        // 2. Menghapus elemen <body>
-                        if (document.body) {
-                            document.body.remove();
-                        }
+                       clickGTDButton();
                     }
                 }
                 return sendMessage.apply(this, args);
@@ -446,7 +510,6 @@
                 const [info] = args;
                 LinkInfo = info
                 console.log('[Debug] Link info:', info);
-                spoofWorkink();
                 try {
                     Object.defineProperty(info, 'isAdblockEnabled', {
                         get: () => false,
@@ -620,69 +683,6 @@
             };
         }
 
-        window.googletag = { cmd: [], _loaded_: true };
-
-        const blockedClasses = [
-            "adsbygoogle",
-            "adsense-wrapper",
-            "inline-ad",
-            "gpt-billboard-container",
-            "[&:not(:first-child)]:mt-12",
-            "lg:block",
-            "linkcard",
-            "linklist",
-            "svelte-1xnqd8c",
-            "svelte-1ao8oou",
-            "svelte-1i15zsk",
-            "qc-cmp2-container",
-            "roundedDotChatButton"
-        ];
-
-        const blockedIds = [
-            "billboard-1",
-            "billboard-2",
-            "billboard-3",
-            "sidebar-ad-1",
-            "skyscraper-ad-1"
-        ];
-
         setupInterception();
-
-        const ob = new MutationObserver(mutations => {
-            for (const m of mutations) {
-                for (const node of m.addedNodes) {
-                    if (node.nodeType === 1) {
-                        blockedClasses.forEach((cls) => {
-                            if (node.classList?.contains(cls)) {
-                                node.remove();
-                            }
-                            node.querySelectorAll?.(`.${CSS.escape(cls)}`).forEach((el) => {
-                                el.remove();
-                            });
-                        });
-
-                        blockedIds.forEach((id) => {
-                            if (node.id === id) {
-                                node.remove();
-                            }
-                            node.querySelectorAll?.(`#${id}`).forEach((el) => {
-                                el.remove();
-                            });
-                        });
-
-                        if (node.matches('.button.large.accessBtn.pos-relative') && node.textContent.includes('Go To Destination')) {
-                            node.click();
-                        } else {
-                            node.querySelectorAll?.('.button.large.accessBtn.pos-relative').forEach(btn => {
-                                if (btn.textContent.includes('Go To Destination')) {
-                                    btn.click();
-                                }
-                            });
-                        }
-                    }
-                }
-            }
-        });
-        ob.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
     }
 })();
