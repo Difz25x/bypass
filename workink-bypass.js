@@ -99,7 +99,6 @@
         }
     }
 
-    // Handler for WORK.INK
     function handleWorkInk() {
 
         let sessionController = undefined;
@@ -181,11 +180,11 @@
         }
 
         function spoofWorkink() {
-            if (!LinkInfo) {
+            if (!sessionController.linkInfo){
                 return;
             }
 
-            const socials = LinkInfo.socials || [];
+            const socials = sessionController.linkInfo.socials || [];
             console.log('[Bypass] Total Socials: ', socials.length)
 
             if (socials.length > 0) {
@@ -254,34 +253,19 @@
                         switch (nodeId) {
                             case 22: // Announcement
                                 nodeSendMessage.call(node, { event: 'read' });
-                                await sleep(500);
-                                if (typeof node.setDone === 'function') {
-                                    node.setDone();
-                                } else {
-                                    nodeSendMessage.call(node, { event: 'done' });
-                                }
                                 break;
 
                             case 23: // Installer
                                 nodeSendMessage.call(node, { event: 'start' });
                                 await sleep(300);
                                 nodeSendMessage.call(node, { event: 'installClicked' });
-                                await sleep(500);
-                                if (typeof node.setDone === 'function') {
-                                    node.setDone();
-                                } else {
-                                    nodeSendMessage.call(node, { event: 'done' });
-                                }
                                 break;
 
                             case 25: // Opera GX
                                 nodeSendMessage.call(node, { event: 'start' });
                                 await sleep(300);
                                 nodeSendMessage.call(node, { event: 'installClicked' });
-
-                                // Trigger Opera GX API calls
                                 fetch('/_api/v2/affiliate/operaGX', { method: 'GET', mode: 'no-cors' }).catch(() => {});
-
                                 setTimeout(() => {
                                     fetch('https://work.ink/_api/v2/callback/operaGX', {
                                         method: 'POST',
@@ -289,15 +273,10 @@
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ noteligible: true })
                                     }).catch(() => {});
-                                }, 2000);
+                                }, 5000);
 
                                 await sleep(3000);
-                                // Call setDone() method directly instead of sendMessage
-                                if (typeof node.setDone === 'function') {
-                                    node.setDone();
-                                } else {
-                                    nodeSendMessage.call(node, { event: 'done' });
-                                }
+                                // Call setDone() method direc
                                 break;
 
                             case 27: // Buff Desktop
@@ -305,24 +284,12 @@
                                 nodeSendMessage.call(node, { event: 'start' });
                                 await sleep(300);
                                 nodeSendMessage.call(node, { event: 'installClicked' });
-                                await sleep(500);
-                                if (typeof node.setDone === 'function') {
-                                    node.setDone();
-                                } else {
-                                    nodeSendMessage.call(node, { event: 'done' });
-                                }
                                 break;
 
                             case 29: // Browser Extension 2
                             case 36: // Lume Browser Android
                             case 57: // BetterDeals Extension
                                 nodeSendMessage.call(node, { event: 'installed' });
-                                await sleep(500);
-                                if (typeof node.setDone === 'function') {
-                                    node.setDone();
-                                } else {
-                                    nodeSendMessage.call(node, { event: 'done' });
-                                }
                                 break;
 
                             case 32: // Nord VPN
@@ -330,36 +297,18 @@
                                 nodeSendMessage.call(node, { event: 'start' });
                                 await sleep(300);
                                 nodeSendMessage.call(node, { event: 'installClicked' });
-                                await sleep(500);
-                                if (typeof node.setDone === 'function') {
-                                    node.setDone();
-                                } else {
-                                    nodeSendMessage.call(node, { event: 'done' });
-                                }
                                 break;
 
                             case 40: // Install App
                                 nodeSendMessage.call(node, { event: 'start' });
                                 await sleep(300);
                                 nodeSendMessage.call(node, { event: 'installClicked' });
-                                await sleep(500);
-                                if (typeof node.setDone === 'function') {
-                                    node.setDone();
-                                } else {
-                                    nodeSendMessage.call(node, { event: 'done' });
-                                }
                                 break;
 
                             case 60: // LDPlayer
                                 nodeSendMessage.call(node, { event: 'start' });
                                 await sleep(300);
                                 nodeSendMessage.call(node, { event: 'installClicked' });
-                                await sleep(500);
-                                if (typeof node.setDone === 'function') {
-                                    node.setDone();
-                                } else {
-                                    nodeSendMessage.call(node, { event: 'done' });
-                                }
                                 break;
 
                             case 62: // On That Ass
@@ -369,30 +318,10 @@
                                 nodeSendMessage.call(node, { event: 'start' });
                                 await sleep(300);
                                 nodeSendMessage.call(node, { event: 'installClicked' });
-                                await sleep(500);
-                                if (typeof node.setDone === 'function') {
-                                    node.setDone();
-                                } else {
-                                    nodeSendMessage.call(node, { event: 'done' });
-                                }
                                 break;
 
                             default:
                                 console.log('[Bypass] Unknown monetization ID:', nodeId);
-                                // Try generic approach with all events
-                                nodeSendMessage.call(node, { event: 'read' });
-                                await sleep(200);
-                                nodeSendMessage.call(node, { event: 'start' });
-                                await sleep(200);
-                                nodeSendMessage.call(node, { event: 'installClicked' });
-                                await sleep(200);
-                                nodeSendMessage.call(node, { event: 'installed' });
-                                await sleep(200);
-                                if (typeof node.setDone === 'function') {
-                                    node.setDone();
-                                } else {
-                                    nodeSendMessage.call(node, { event: 'done' });
-                                }
                                 break;
                         }
 
@@ -508,7 +437,6 @@
         function createLinkInfo() {
             return async function (...args) {
                 const [info] = args;
-                LinkInfo = info
                 console.log('[Debug] Link info:', info);
                 try {
                     Object.defineProperty(info, 'isAdblockEnabled', {
@@ -520,7 +448,7 @@
                 } catch (e) {
                     console.error('[Error] Failed to override adblock detection:', e);
                 }
-                return LinkInfo ? LinkInfo.apply(this, args): undefined;
+                return LinkInfo.apply(this, args);
             };
         }
 
@@ -560,7 +488,7 @@
                         startCountdown(data.url, waitTimeSeconds);
                     }
                 }
-                return LinkDestination ? LinkDestination.apply(this, args): undefined;
+                return LinkDestination.apply(this, args);
             };
         }
 
