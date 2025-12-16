@@ -80,7 +80,7 @@
                     return;
                 }
                 spoofWorkink();
-                setTimeout(keepSpoofing, 5000);
+                setTimeout(keepSpoofing, 1000);
             }
             keepSpoofing();
             //spoofWorkink();
@@ -184,6 +184,12 @@
 
                                 await sleep(3000);
                                 // Call setDone() method direc
+                                break;
+
+                            case 73: // webbrowser
+                                nodeSendMessage.call(node, { event: 'start' });
+                                await sleep(300);
+                                nodeSendMessage.call(node, { event: 'installClicked' });
                                 break;
 
                             case 27: // Buff Desktop
@@ -384,11 +390,8 @@
                 destinationReceived = true;
                 console.log("[Debug] Destination data: ", data)
 
-                let waitTimeSeconds = 5;
+                let waitTimeSeconds = 12;
                 const url = location.href;
-                if (url.includes('42rk6hcq') || url.includes('ito4wckq') || url.includes('pzarvhq1')) {
-                    waitTimeSeconds = 33;
-                }
 
                 if (!destinationProcessed) {
                     destinationProcessed = true;
