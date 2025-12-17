@@ -261,11 +261,15 @@
     const originalAttachShadow = Element.prototype.attachShadow;
     const shadowRoots = new WeakMap();
 
-    Element.prototype.attachShadow = function(options) {
-        const shadowRoot = originalAttachShadow.call(this, { ...options, mode: 'open' });
-        shadowRoots.set(this, shadowRoot);
-        return shadowRoot;
-    };
+    Object.defineProperty(Element.prototype, 'attachShadow', {
+        value: function(options) {
+            return originalAttachShadow.call(this, { ...options, mode: 'open' });
+        },
+        configurable: false,
+        writable: false
+    });
+
+    console.log("Sistem Aktif: Semua Shadow Root baru akan otomatis menjadi 'OPEN'.");
 
     function getAllShadowRoots(element = document.body) {
         const shadows = [];
@@ -584,7 +588,7 @@
                                     form.dispatchEvent(submitEvent);
                                 }
                             }
-                        }, 1000);
+                        }, 10);
 
                         return true;
                     }
@@ -599,7 +603,7 @@
                             btnText.includes('proceed')) {
                             setTimeout(() => {
                                 btn.click();
-                            }, 1000);
+                            }, 100);
                             return true;
                         }
                     }
@@ -614,7 +618,7 @@
 
                     setTimeout(() => {
                         clearInterval(checkRedirect);
-                    }, 3000);
+                    }, 10);
 
                     return false;
                 } catch (error) {
@@ -633,7 +637,6 @@
                         const container = findTurnstileContainer();
 
                         if (container) {
-                            await sleep(500);
                             performClick(container, CLICK_X, CLICK_Y);
                         }
 
