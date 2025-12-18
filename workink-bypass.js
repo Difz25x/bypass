@@ -4,10 +4,9 @@
     const host = location.hostname;
     const defaultTime = 21;
 
-    else if (host.includes("work.ink")) handleWorkInk();
+    if (host.includes("work.ink")) handleWorkInk();
 
     function handleWorkInk() {
-
         let sessionController = undefined;
         let sendMessage = undefined;
         let LinkInfo = undefined;
@@ -252,86 +251,66 @@
             }
         }
         let totalDiv = 0;
-        let isInGoogle = false;
 
-        function clickGTDButton() {
-            const GTDiv = document.querySelector('div.button.large.accessBtn.pos-relative.svelte-11ncrz');
-            if (!GTDiv) {
-                console.log('GTD Button not found, retrying clickGTDButton...')
-                setTimeout(clickGTDButton, 100);
-                return;
+        function handleUIElements(){
+            // Check and remove Access Options Div
+            const accessDiv = document.querySelector('div.bg-white.rounded-2xl.w-full.max-w-md.relative.shadow-2xl.animate-fade-in');
+            if (accessDiv) {
+                console.log('Access Options Div found. Removing...');
+                accessDiv.remove();
             }
 
-            if (totalDiv >= 3) {
-                console.log("Maximum clicks reached. Stopping.");
-                return;
-            }
-
-            const disabled = GTDiv.classList.contains("button-disabled");
-            if (disabled) {
-                GTDiv.classList.remove("button-disabled");
-            }
-
-            try {
-                console.log(`Clicking GTDiv. Current totalDiv: ${totalDiv}`);
-                GTDiv.click();
-                totalDiv++;
-            } catch (e) {
-                console.log("Error in GTDiv click", e);
-            }
-
-            checkAccessOptionsDiv();
-            checkModalDiv();
-            checkGoogleDiv();
-        }
-
-        function checkAccessOptionsDiv() {
-            const selector = 'div.bg-white.rounded-2xl.w-full.max-w-md.relative.shadow-2xl.animate-fade-in';
-            const accessOptionsDiv = document.querySelector(selector);
-
-            if (accessOptionsDiv) {
-                console.log('Access Options Div found. Removing and clicking next.');
-                accessOptionsDiv.remove();
-                clickGTDButton();
-                return;
-            }
-            setTimeout(checkAccessOptionsDiv, 100);
-        }
-
-        function checkModalDiv() {
-            const selector = 'div.fixed.inset-0.bg-black\\/50.backdrop-blur-sm.flex.items-center.justify-center.p-4.main-modal.svelte-9kfsb0';
-            const modalDiv = document.querySelector(selector);
-
+            // Check and remove Modal Div
+            const modalDiv = document.querySelector('div.fixed.inset-0.bg-black\\/50.backdrop-blur-sm.flex.items-center.justify-center.p-4.main-modal.svelte-9kfsb0');
             if (modalDiv) {
-                console.log('Modal Div found. Removing and clicking next.');
+                console.log('Modal Div found. Removing...');
                 modalDiv.remove();
-                clickGTDButton();
-                return;
             }
-            setTimeout(checkModalDiv, 100);
-        }
 
-        function checkGoogleDiv() {
-            const selector = 'div.fixed.top-16.left-0.right-0.bottom-0.bg-white.z-40.overflow-y-auto';
-            const googleDiv = document.querySelector(selector);
-
+            // Check and remove Google Div
+            const googleDiv = document.querySelector('div.fixed.top-16.left-0.right-0.bottom-0.bg-white.z-40.overflow-y-auto');
             if (googleDiv) {
                 console.log('Google Div found. Removing and bypassing captcha.');
                 googleDiv.remove();
-                isInGoogle = true;
                 triggerBypass('captcha');
-                return;
             }
-            setTimeout(checkGoogleDiv, 100);
-        }
+
+            const offersDiv = document.querySelector('div.block.curr');
+            if (offersDiv) {
+                console.log('Offers Div found. Removing and bypassing captcha.');
+                offersDiv.remove();
+                triggerBypass('captcha');
+            }
+
+            // Find and click GTD Button
+            const GTDiv = document.querySelector('div.button.large.accessBtn.pos-relative');
+            if (GTDiv && totalDiv < 3) {
+                if (GTDiv.classList.contains("button-disabled")) {
+                    GTDiv.classList.remove("button-disabled");
+                }
+                try {
+                    console.log(`Clicking GTDiv. Current totalDiv: ${totalDiv}`);
+                    GTDiv.click();
+                    totalDiv++;
+                } catch (e) {
+                    console.log("Error in GTDiv click", e);
+                }
+            }else if (totalDiv >= 3) {
+                console.log("Maximum clicks reached. Stopping.");
+                return;
+            } else if (!GTDiv) {
+                console.log('GTD Button not found, retrying...');
+            }
+
+            // Continue checking
+            setTimeout(handleUIElements, 1);
+        };
 
         function createSendMessage() {
             return function (...args) {
                 const packet_type = args[0];
                 const packet_data = args[1];
-                if (packet_type !== types.pi) {
-                    console.log('[Debug] Message sent:', packet_type, packet_data);
-                }
+                console.log('[Debug] Message sent:', packet_type, packet_data);
                 const captchaResponses = [
                     types.tr,
                     types.hr,
@@ -340,7 +319,7 @@
                 for (let i = 0; i < captchaResponses.length; i++){
                     const captchaResponse = captchaResponses[i]
                     if (packet_type === captchaResponse) {
-                       clickGTDButton();
+                       handleUIElements();
                     }
                 }
                 return sendMessage.apply(this, args);
@@ -525,5 +504,53 @@
         }
 
         setupInterception();
+
+        window.googletag = {cmd: [], _loaded_: true};
+
+        const blockedClasses = [
+            "adsbygoogle",
+            "adsense-wrapper",
+            "inline-ad",
+            "gpt-billboard-container"
+        ];
+
+        const blockedIds = [
+            "billboard-1",
+            "billboard-2",
+            "billboard-3",
+            "sidebar-ad-1",
+            "skyscraper-ad-1"
+        ];
+
+        const observer = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                for (const node of m.addedNodes) {
+                    if (node.nodeType === 1) {
+                        blockedClasses.forEach((cls) => {
+                            if (node.classList?.contains(cls)) {
+                                node.remove();
+                                console.log("Removed injected ad by class:", node);
+                            }
+                            node.querySelectorAll?.(`.${cls}`).forEach((el) => {
+                                el.remove();
+                                console.log("Removed nested ad:", el);
+                            });
+                        });
+                        blockedIds.forEach((id) => {
+                            if (node.id === id) {
+                                node.remove();
+                                console.log("Removed injected ad by id:", node);
+                            }
+                            node.querySelectorAll?.(`#${id}`).forEach((el) => {
+                                el.remove();
+                                console.log("Removed nested ad:", el);
+                            });
+                        });
+                    }
+                }
+            }
+        });
+
+        observer.observe(unsafeWindow.document.documentElement, { childList: true, subtree: true });
     }
 })();
