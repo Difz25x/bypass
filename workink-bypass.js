@@ -1,10 +1,27 @@
 (function () {
     'use strict';
 
-    const host = location.hostname;
-    const defaultTime = 21;
+    const log = {
+        stylePrefix: 'color: #ffac79ff; font-weight: bold; padding: 2px 5px; border-radius: 4px;',
+        debug: (task, data = '') => {
+            console.log(`%c[DEBUG]`, log.stylePrefix, task, data);
+        },
+        info: (task, data = '') => {
+            console.log(`%c[INFO]`, log.stylePrefix, task, data);
+        },
+        error: (task, err = '') => {
+            console.log(`%c[ERROR]`, log.stylePrefix, task, err);
+        },
+        method: (name, obj1, obj2) => {
+            console.log(`%c[METHOD]`, log.stylePrefix, name, obj1, obj2);
+        }
+    };
 
-    if (host.includes("work.ink")) handleWorkInk();
+    const host = location.hostname;
+
+    if (host.includes("work.ink")) {
+        handleWorkInk();
+    }
 
     function handleWorkInk() {
         let sessionController = undefined;
@@ -62,7 +79,7 @@
             bd: 'c_bot_detected'
         };
 
-        console.log('[Debug] WebSocket status:', {
+        log.debug('WebSocket status:', {
             exists: !!sessionController?.websocket,
             readyState: sessionController?.websocket?.readyState,
             url: sessionController?.websocket?.url
@@ -73,7 +90,7 @@
                 return;
             }
             bypassTriggered = true;
-            console.log('[Debug] trigger Bypass via:', reason);
+            console.log('trigger Bypass via:', reason);
             function keepSpoofing() {
                 if (destinationReceived) {
                     return;
@@ -81,8 +98,8 @@
                 spoofWorkink();
                 setTimeout(keepSpoofing, 1000);
             }
-            keepSpoofing();
-            //spoofWorkink();
+            //keepSpoofing();
+            spoofWorkink();
         }
 
         function spoofWorkink() {
@@ -91,7 +108,7 @@
             }
 
             const socials = sessionController.linkInfo.socials || [];
-            console.log('[Bypass] Total Socials: ', socials.length)
+            log.info('Total Socials: ', socials.length)
 
             if (socials.length > 0) {
                 (async () => {
@@ -102,7 +119,7 @@
                                 const payload = { url: soc.url };
                                 if (sessionController.websocket && sessionController.websocket.readyState === WebSocket.OPEN) {
                                     sendMessage.call(sessionController, types.ss, payload);
-                                    console.log('[Bypass] Social Bypassed: ', payload)
+                                    log.debug('Social Bypassed: ', payload)
                                 } else {
                                     await new Promise(resolve => setTimeout(resolve, 1000));
                                     i--;
@@ -110,7 +127,7 @@
                                 }
                             }
                         } catch (e) {
-                            console.error('[Error] Social bypass failed:', e);
+                            log.error('Social bypass failed:', e);
                         }
                         if (i < socials.length) {
                            window.location.reload();
@@ -145,7 +162,7 @@
                 injectBrowserExtensionSupport();
                 const nodes = sessionController?.monetizations || [];
 
-                console.log('[Bypass] Total monetizations:', nodes.length);
+                log.info('Total monetizations:', nodes.length);
 
                 for (let i = 0; i < nodes.length; i++) {
                     const node = nodes[i];
@@ -154,7 +171,7 @@
                         const nodeId = node.id;
                         const nodeSendMessage = node.sendMessage;
 
-                        console.log('[Bypass] Processing ID:', nodeId);
+                        log.info('Processing ID:', nodeId);
 
                         switch (nodeId) {
                             case 22: // Announcement
@@ -233,17 +250,17 @@
                                 break;
 
                             default:
-                                console.log('[Bypass] Unknown monetization ID:', nodeId);
+                                console.log('Unknown monetization ID:', nodeId);
                                 break;
                         }
 
-                        console.log('[Bypass] Completed ID:', nodeId);
+                        log.info('Completed ID:', nodeId);
                     } catch (e) {
-                        console.error('[Error] Failed to process node:', node.id, e);
+                        log.error('Failed to process node:', node.id, e);
                     }
                 }
 
-                console.log('[Bypass] All monetizations processed');
+                log.info('All monetizations processed');
             }
 
             function sleep(ms) {
@@ -256,21 +273,18 @@
             // Check and remove Access Options Div
             const accessDiv = document.querySelector('div.bg-white.rounded-2xl.w-full.max-w-md.relative.shadow-2xl.animate-fade-in');
             if (accessDiv) {
-                console.log('Access Options Div found. Removing...');
                 accessDiv.remove();
             }
 
             // Check and remove Modal Div
             const modalDiv = document.querySelector('div.fixed.inset-0.bg-black\\/50.backdrop-blur-sm.flex.items-center.justify-center.p-4.main-modal.svelte-9kfsb0');
             if (modalDiv) {
-                console.log('Modal Div found. Removing...');
                 modalDiv.remove();
             }
 
             // Check and remove Google Div
             const googleDiv = document.querySelector('div.fixed.top-16.left-0.right-0.bottom-0.bg-white.z-40.overflow-y-auto');
             if (googleDiv) {
-                console.log('Google Div found. Removing and bypassing captcha.');
                 googleDiv.remove();
                 triggerBypass('captcha');
             }
@@ -282,17 +296,13 @@
                     GTDiv.classList.remove("button-disabled");
                 }
                 try {
-                    console.log(`Clicking GTDiv. Current totalDiv: ${totalDiv}`);
                     GTDiv.click();
                     totalDiv++;
                 } catch (e) {
-                    console.log("Error in GTDiv click", e);
                 }
             }else if (totalDiv >= 3) {
-                console.log("Maximum clicks reached. Stopping.");
                 return;
             } else if (!GTDiv) {
-                console.log('GTD Button not found, retrying...');
             }
 
             // Continue checking
@@ -303,7 +313,7 @@
             return function (...args) {
                 const packet_type = args[0];
                 const packet_data = args[1];
-                console.log('[Debug] Message sent:', packet_type, packet_data);
+                log.method('Message sent:', packet_type, packet_data);
                 const captchaResponses = [
                     types.tr,
                     types.hr,
@@ -322,7 +332,7 @@
         function createLinkInfo() {
             return async function (...args) {
                 const [info] = args;
-                console.log('[Debug] Link info:', info);
+                log.info('Link info:', info);
                 if (sessionController.linkInfo.socials.length > 0){
                     spoofWorkink();
                 }
@@ -334,7 +344,7 @@
                         enumerable: true
                     });
                 } catch (e) {
-                    console.error('[Error] Failed to override adblock detection:', e);
+                    log.error('Failed to override adblock detection:', e);
                 }
                 return LinkInfo.apply(this, args);
             };
@@ -348,7 +358,7 @@
             const interval = setInterval(() => {
                 waitLeft -= 1;
                 if (waitLeft > 0) {
-                    console.log('[Countdown]', waitLeft, 'seconds remaining...');
+                    log.debug(waitLeft, 'seconds remaining...');
                 } else {
                     clearInterval(interval);
                     redirect(url);
@@ -360,7 +370,7 @@
             return async function (...args) {
                 const [data] = args;
                 destinationReceived = true;
-                console.log("[Debug] Destination data: ", data)
+                log.info("Link Destination: ", data)
 
                 let waitTimeSeconds = 12;
                 const url = location.href;
@@ -384,9 +394,9 @@
 
             if (!send.fn || !info.fn || !dest.fn) return;
 
-            console.log('%c[METHOD] Send Message:', "color:#0ff;font-weight:bold;", send)
-            console.log('%c[METHOD] Link Info:', "color:#0ff;font-weight:bold;", info)
-            console.log('%c[METHOD] Link Destination:', "color:#0ff;font-weight:bold;", dest)
+            log.method('Send Message:', send)
+            log.method('Link Info:', info)
+            log.method('Link Destination:', dest)
 
             sendMessage = send.fn;
             LinkInfo = info.fn;
@@ -409,7 +419,7 @@
                     configurable: true
                 });
             } catch (e) {
-                console.error('[Error] Failed to setup proxies:', e);
+                log.error('Failed to setup proxies:', e);
             }
         }
 
@@ -423,7 +433,7 @@
             ) {
                 sessionController = value;
                 setupProxies();
-                console.log('[Debug] Controller detected:', sessionController);
+                log.debug('Controller detected:', sessionController);
             }
             return Reflect.set(target, prop, value);
         }
@@ -486,7 +496,7 @@
                             if (success) {
                                 intercepted = true;
                                 Promise.all = origPromiseAll;
-                                console.log('[Debug]: Kit ready', created, app);
+                                log.debug('Kit ready', created, app);
                             }
                             resolve([created, app, ...args]);
                         });
