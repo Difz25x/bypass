@@ -275,13 +275,6 @@
                 triggerBypass('captcha');
             }
 
-            const offersDiv = document.querySelector('div.block.curr');
-            if (offersDiv) {
-                console.log('Offers Div found. Removing and bypassing captcha.');
-                offersDiv.remove();
-                triggerBypass('captcha');
-            }
-
             // Find and click GTD Button
             const GTDiv = document.querySelector('div.button.large.accessBtn.pos-relative');
             if (GTDiv && totalDiv < 3) {
@@ -504,53 +497,5 @@
         }
 
         setupInterception();
-
-        window.googletag = {cmd: [], _loaded_: true};
-
-        const blockedClasses = [
-            "adsbygoogle",
-            "adsense-wrapper",
-            "inline-ad",
-            "gpt-billboard-container"
-        ];
-
-        const blockedIds = [
-            "billboard-1",
-            "billboard-2",
-            "billboard-3",
-            "sidebar-ad-1",
-            "skyscraper-ad-1"
-        ];
-
-        const observer = new MutationObserver((mutations) => {
-            for (const m of mutations) {
-                for (const node of m.addedNodes) {
-                    if (node.nodeType === 1) {
-                        blockedClasses.forEach((cls) => {
-                            if (node.classList?.contains(cls)) {
-                                node.remove();
-                                console.log("Removed injected ad by class:", node);
-                            }
-                            node.querySelectorAll?.(`.${cls}`).forEach((el) => {
-                                el.remove();
-                                console.log("Removed nested ad:", el);
-                            });
-                        });
-                        blockedIds.forEach((id) => {
-                            if (node.id === id) {
-                                node.remove();
-                                console.log("Removed injected ad by id:", node);
-                            }
-                            node.querySelectorAll?.(`#${id}`).forEach((el) => {
-                                el.remove();
-                                console.log("Removed nested ad:", el);
-                            });
-                        });
-                    }
-                }
-            }
-        });
-
-        observer.observe(unsafeWindow.document.documentElement, { childList: true, subtree: true });
     }
 })();
