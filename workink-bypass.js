@@ -170,8 +170,7 @@
                     try {
                         const nodeId = node.id;
                         const nodeSendMessage = node.sendMessage;
-
-                        log.info('Processing ID:', nodeId);
+                        log.info(`Processing monetization [${i+1}/${nodes.length}]:`, node);
 
                         switch (nodeId) {
                             case 22: // Announcement
@@ -267,47 +266,6 @@
                 return new Promise(resolve => setTimeout(resolve, ms));
             }
         }
-        let totalDiv = 0;
-
-        function handleUIElements(){
-            // Check and remove Access Options Div
-            const accessDiv = document.querySelector('div.bg-white.rounded-2xl.w-full.max-w-md.relative.shadow-2xl.animate-fade-in');
-            if (accessDiv) {
-                accessDiv.remove();
-            }
-
-            // Check and remove Modal Div
-            const modalDiv = document.querySelector('div.fixed.inset-0.bg-black\\/50.backdrop-blur-sm.flex.items-center.justify-center.p-4.main-modal.svelte-9kfsb0');
-            if (modalDiv) {
-                modalDiv.remove();
-            }
-
-            // Check and remove Google Div
-            const googleDiv = document.querySelector('div.fixed.top-16.left-0.right-0.bottom-0.bg-white.z-40.overflow-y-auto');
-            if (googleDiv) {
-                googleDiv.remove();
-                triggerBypass('captcha');
-            }
-
-            // Find and click GTD Button
-            const GTDiv = document.querySelector('div.button.large.accessBtn.pos-relative');
-            if (GTDiv && totalDiv < 3) {
-                if (GTDiv.classList.contains("button-disabled")) {
-                    GTDiv.classList.remove("button-disabled");
-                }
-                try {
-                    GTDiv.click();
-                    totalDiv++;
-                } catch (e) {
-                }
-            }else if (totalDiv >= 3) {
-                return;
-            } else if (!GTDiv) {
-            }
-
-            // Continue checking
-            setTimeout(handleUIElements, 1);
-        };
 
         function createSendMessage() {
             return function (...args) {
@@ -322,7 +280,7 @@
                 for (let i = 0; i < captchaResponses.length; i++){
                     const captchaResponse = captchaResponses[i]
                     if (packet_type === captchaResponse) {
-                       handleUIElements();
+                        triggerBypass('captcha');
                     }
                 }
                 return sendMessage.apply(this, args);
@@ -333,9 +291,7 @@
             return async function (...args) {
                 const [info] = args;
                 log.info('Link info:', info);
-                if (sessionController.linkInfo.socials.length > 0){
-                    spoofWorkink();
-                }
+                spoofWorkink();
                 try {
                     Object.defineProperty(info, 'isAdblockEnabled', {
                         get: () => false,
@@ -507,5 +463,23 @@
         }
 
         setupInterception();
+
+        const hide = 'W2lkXj0iYnNhLXpvbmVfIl0sCmRpdi5maXhlZC5pbnNldC0wLmJnLWJsYWNrXC81MC5iYWNrZHJvcC1ibHVyLXNtLApkaXYuZG9uZS1iYW5uZXItY29udGFpbmVyLnN2ZWx0ZS0xeWptazFnLAppbnM6bnRoLW9mLXR5cGUoMSksCmRpdjpudGgtb2YtdHlwZSg5KSwKZGl2LmZpeGVkLnRvcC0xNi5sZWZ0LTAucmlnaHQtMC5ib3R0b20tMC5iZy13aGl0ZS56LTQwLm92ZXJmbG93LXktYXV0bywKcFtzdHlsZV0sCi5hZHNieWdvb2dsZSwKLmFkc2Vuc2Utd3JhcHBlciwKLmlubGluZS1hZCwKLmdwdC1iaWxsYm9hcmQtY29udGFpbmVyLAojYmlsbGJvYXJkLTEsCiNiaWxsYm9hcmQtMiwKI2JpbGxib2FyZC0zLAojc2lkZWJhci1hZC0xLAojc2t5c2NyYXBlci1hZC0xLApkaXYubGdcOmJsb2NrIHsKICAgIGRpc3BsYXk6IG5vbmUgIWltcG9ydGFudDsKfQ==';
+
+        const style = document.createElement('style');
+        style.textContent = (typeof atob === 'function') ? atob(hide) : (Buffer ? Buffer.from(hide, 'base64').toString() : '');
+        (document.head || document.documentElement).appendChild(style);
+
+        const ob = new MutationObserver(mutations => {
+            for (const m of mutations) {
+                for (const node of m.addedNodes) {
+                    if (node.nodeType !== 1) continue;
+
+                    if (node.classList?.contains('adsbygoogle')) node.remove();
+                    node.querySelectorAll?.('.adsbygoogle').forEach(el => el.remove());
+                }
+            }
+        });
+        ob.observe(document.documentElement, { childList: true, subtree: true });
     }
 })();
