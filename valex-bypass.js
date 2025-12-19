@@ -1,6 +1,22 @@
 (function() {
     'use strict';
 
+    const log = {
+        stylePrefix: 'color: #ffac79ff; font-weight: bold; padding: 2px 5px; border-radius: 4px;',
+        debug: (task, data = '') => {
+            console.log(`%c[DEBUG]`, log.stylePrefix, task, data);
+        },
+        info: (task, data = '') => {
+            console.log(`%c[INFO]`, log.stylePrefix, task, data);
+        },
+        error: (task, err = '') => {
+            console.log(`%c[ERROR]`, log.stylePrefix, task, err);
+        },
+        method: (name, obj1, obj2) => {
+            console.log(`%c[METHOD]`, log.stylePrefix, name, obj1, obj2);
+        }
+    };
+
     const host = location.hostname;
 
     // Route to appropriate handler
@@ -228,13 +244,11 @@
 
                         if (newStep >= 3) {
                             updateValexStatus('complete', 3, 'All checkpoints done! Reloading...');
-                            await sleep(2000);
                             window.location.reload();
                             return true;
                         }
 
                         updateValexStatus('complete', newStep, 'Checkpoint completed! Reloading...');
-                        await sleep(3000);
                         window.location.reload();
                         return true;
                     } else {
@@ -259,21 +273,19 @@
                 }
 
                 updateValexStatus('waiting', null, 'Looking for button...');
-                await sleep(2000);
+                await sleep(100);
                 return clickCheckpointButton();
             }
 
             if (button.disabled) {
                 updateValexStatus('waiting', null, 'Button disabled, waiting...');
-                await sleep(1000);
+                await sleep(100);
                 return clickCheckpointButton();
             }
 
             const currentStep = parseInt(sessionStorage.getItem('keySystemStep') || '0');
 
             updateValexStatus('processing', currentStep, `Clicking checkpoint ${currentStep + 1}...`);
-
-            await sleep(2000);
 
             // Mark that we're opening the link
             sessionStorage.setItem('keySystemLinkOpened', 'true');
@@ -294,14 +306,12 @@
 
             if (!completed) {
                 updateValexStatus('waiting', currentStep, 'Ready to start...');
-                await sleep(2000);
                 await clickCheckpointButton();
             }
         };
 
         const init = async () => {
             console.log('%c=== Valex Auto Bypass ===', COLORS.info);
-            await sleep(1000);
             setupAntiDetection();
             await handleMainPage();
         };
@@ -313,12 +323,7 @@
         }
     }
 
-    // ============================================
-    // WORK.INK HANDLER (FULL BYPASS)
-    // ============================================
     function handleWorkInk() {
-        console.log('%c[Work.ink] Bypass activated', 'color: #00ff00; font-weight: bold;');
-
         let sessionController = undefined;
         let sendMessage = undefined;
         let LinkInfo = undefined;
@@ -330,26 +335,6 @@
         const map = {
             onLI: ["onLinkInfo"],
             onLD: ["onLinkDestination"]
-        };
-
-        const types = {
-            an: 'c_announce',
-            mo: 'c_monetization',
-            ss: 'c_social_started',
-            rr: 'c_recaptcha_response',
-            hr: 'c_hcaptcha_response',
-            tr: 'c_turnstile_response',
-            ad: 'c_adblocker_detected',
-            fl: 'c_focus_lost',
-            os: 'c_offers_skipped',
-            ok: 'c_offer_skipped',
-            fo: 'c_focus',
-            wp: 'c_workink_pass_available',
-            wu: 'c_workink_pass_use',
-            pi: 'c_ping',
-            kk: 'c_keyapp_key',
-            mc: 'c_monocle',
-            bd: 'c_bot_detected'
         };
 
         function getName(obj, candidates = null) {
@@ -374,192 +359,272 @@
             return { fn: null, index: -1, name: null };
         }
 
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
+        const types = {
+            an: 'c_announce',
+            mo: 'c_monetization',
+            ss: 'c_social_started',
+            rr: 'c_recaptcha_response',
+            hr: 'c_hcaptcha_response',
+            tr: 'c_turnstile_response',
+            ad: 'c_adblocker_detected',
+            fl: 'c_focus_lost',
+            os: 'c_offers_skipped',
+            ok: 'c_offer_skipped',
+            fo: 'c_focus',
+            wp: 'c_workink_pass_available',
+            wu: 'c_workink_pass_use',
+            pi: 'c_ping',
+            kk: 'c_keyapp_key',
+            mc: 'c_monocle',
+            bd: 'c_bot_detected'
+        };
+
+        log.debug('WebSocket status:', {
+            exists: !!sessionController?.websocket,
+            readyState: sessionController?.websocket?.readyState,
+            url: sessionController?.websocket?.url
+        });
 
         function triggerBypass(reason) {
-            if (bypassTriggered) return;
+            if (bypassTriggered) {
+                return;
+            }
             bypassTriggered = true;
-            console.log('[Work.ink] Triggering bypass via:', reason);
+            console.log('trigger Bypass via:', reason);
+            function keepSpoofing() {
+                if (destinationReceived) {
+                    return;
+                }
+                spoofWorkink();
+                setTimeout(keepSpoofing, 1000);
+            }
+            //keepSpoofing();
             spoofWorkink();
         }
 
-        function injectBrowserExtensionSupport() {
-            if (window._browserExtBypassInjected) return;
+        function spoofWorkink() {
+            if (!sessionController.linkInfo){
+                return;
+            }
 
-            if (!window.chrome) window.chrome = {};
-            if (!window.chrome.runtime) window.chrome.runtime = {};
-
-            const originalSendMessage = window.chrome.runtime.sendMessage;
-            window.chrome.runtime.sendMessage = function(extensionId, message, callback) {
-                if (message?.message === 'wk_installed') {
-                    if (callback) callback({ installed: true });
-                    return;
-                }
-                if (originalSendMessage) {
-                    return originalSendMessage.apply(this, arguments);
-                }
-            };
-
-            window._browserExtBypassInjected = true;
-        }
-
-        async function spoofWorkink() {
-            if (!LinkInfo) return;
-
-            injectBrowserExtensionSupport();
-
-            const socials = LinkInfo.socials || [];
-            console.log('[Work.ink] Total Socials:', socials.length);
+            const socials = sessionController.linkInfo.socials || [];
+            log.info('Total Socials: ', socials.length)
 
             if (socials.length > 0) {
-                for (let i = 0; i < socials.length; i++) {
-                    const soc = socials[i];
-                    try {
-                        if (sendMessage && sessionController) {
-                            const payload = { url: soc.url };
-                            if (sessionController.websocket && sessionController.websocket.readyState === WebSocket.OPEN) {
-                                sendMessage.call(sessionController, types.ss, payload);
-                                console.log('[Work.ink] Social bypassed:', payload);
+                (async () => {
+                    for (let i = 0; i < socials.length; i++) {
+                        const soc = socials[i];
+                        try {
+                            if (sendMessage && sessionController) {
+                                const payload = { url: soc.url };
+                                if (sessionController.websocket && sessionController.websocket.readyState === WebSocket.OPEN) {
+                                    sendMessage.call(sessionController, types.ss, payload);
+                                    log.debug('Social Bypassed: ', payload)
+                                } else {
+                                    await new Promise(resolve => setTimeout(resolve, 1000));
+                                    i--;
+                                    continue;
+                                }
                             }
+                        } catch (e) {
+                            log.error('Social bypass failed:', e);
                         }
+                        if (i < socials.length) {
+                           window.location.reload();
+                        }
+                    }
+                })();
+            } else {
+                handleMonetizations();
+            }
+
+            function injectBrowserExtensionSupport() {
+                if (window._browserExt2BypassInjected) return;
+
+                if (!window.chrome) window.chrome = {};
+                if (!window.chrome.runtime) window.chrome.runtime = {};
+
+                const originalSendMessage = window.chrome.runtime.sendMessage;
+                window.chrome.runtime.sendMessage = function(extensionId, message, callback) {
+                    if (message?.message === 'wk_installed') {
+                        if (callback) callback({ installed: true });
+                        return;
+                    }
+                    if (originalSendMessage) {
+                        return originalSendMessage.apply(this, arguments);
+                    }
+                };
+
+                window._browserExt2BypassInjected = true;
+            }
+
+            async function handleMonetizations() {
+                injectBrowserExtensionSupport();
+                const nodes = sessionController?.monetizations || [];
+
+                log.info('Total monetizations:', nodes.length);
+
+                for (let i = 0; i < nodes.length; i++) {
+                    const node = nodes[i];
+
+                    try {
+                        const nodeId = node.id;
+                        const nodeSendMessage = node.sendMessage;
+
+                        log.info('Processing ID:', nodeId);
+
+                        switch (nodeId) {
+                            case 22: // Announcement
+                                nodeSendMessage.call(node, { event: 'read' });
+                                break;
+
+                            case 23: // Installer
+                                nodeSendMessage.call(node, { event: 'start' });
+                                await sleep(300);
+                                nodeSendMessage.call(node, { event: 'installClicked' });
+                                break;
+
+                            case 25: // Opera GX
+                                nodeSendMessage.call(node, { event: 'start' });
+                                await sleep(300);
+                                nodeSendMessage.call(node, { event: 'installClicked' });
+                                fetch('/_api/v2/affiliate/operaGX', { method: 'GET', mode: 'no-cors' }).catch(() => {});
+                                setTimeout(() => {
+                                    fetch('https://work.ink/_api/v2/callback/operaGX', {
+                                        method: 'POST',
+                                        mode: 'no-cors',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ noteligible: true })
+                                    }).catch(() => {});
+                                }, 5000);
+
+                                await sleep(3000);
+                                // Call setDone() method direc
+                                break;
+
+                            case 73: // webbrowser
+                                nodeSendMessage.call(node, { event: 'start' });
+                                await sleep(300);
+                                nodeSendMessage.call(node, { event: 'installClicked' });
+                                break;
+
+                            case 27: // Buff Desktop
+                            case 28: // Buff Mobile
+                                nodeSendMessage.call(node, { event: 'start' });
+                                await sleep(300);
+                                nodeSendMessage.call(node, { event: 'installClicked' });
+                                break;
+
+                            case 29: // Browser Extension 2
+                            case 36: // Lume Browser Android
+                            case 57: // BetterDeals Extension
+                                nodeSendMessage.call(node, { event: 'installed' });
+                                break;
+
+                            case 32: // Nord VPN
+                            case 34: // Norton Antivirus
+                                nodeSendMessage.call(node, { event: 'start' });
+                                await sleep(300);
+                                nodeSendMessage.call(node, { event: 'installClicked' });
+                                break;
+
+                            case 40: // Install App
+                                nodeSendMessage.call(node, { event: 'start' });
+                                await sleep(300);
+                                nodeSendMessage.call(node, { event: 'installClicked' });
+                                break;
+
+                            case 60: // LDPlayer
+                                nodeSendMessage.call(node, { event: 'start' });
+                                await sleep(300);
+                                nodeSendMessage.call(node, { event: 'installClicked' });
+                                break;
+
+                            case 62: // On That Ass
+                            case 65: // Lenme
+                            case 70: // Gauthai
+                            case 71: // External Articles
+                                nodeSendMessage.call(node, { event: 'start' });
+                                await sleep(300);
+                                nodeSendMessage.call(node, { event: 'installClicked' });
+                                break;
+
+                            default:
+                                console.log('Unknown monetization ID:', nodeId);
+                                break;
+                        }
+
+                        log.info('Completed ID:', nodeId);
                     } catch (e) {
-                        console.error('[Work.ink] Social bypass failed:', e);
+                        log.error('Failed to process node:', node.id, e);
                     }
                 }
+
+                log.info('All monetizations processed');
             }
 
-            await handleMonetizations();
+            function sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
         }
+        let totalDiv = 0;
 
-        async function handleMonetizations() {
-            const nodes = sessionController?.monetizations || [];
-            console.log('[Work.ink] Total monetizations:', nodes.length);
+        function handleUIElements(){
+            // Check and remove Access Options Div
+            const accessDiv = document.querySelector('div.bg-white.rounded-2xl.w-full.max-w-md.relative.shadow-2xl.animate-fade-in');
+            if (accessDiv) {
+                accessDiv.remove();
+            }
 
-            for (let i = 0; i < nodes.length; i++) {
-                const node = nodes[i];
+            // Check and remove Modal Div
+            const modalDiv = document.querySelector('div.fixed.inset-0.bg-black\\/50.backdrop-blur-sm.flex.items-center.justify-center.p-4.main-modal.svelte-9kfsb0');
+            if (modalDiv) {
+                modalDiv.remove();
+            }
 
+            // Check and remove Google Div
+            const googleDiv = document.querySelector('div.fixed.top-16.left-0.right-0.bottom-0.bg-white.z-40.overflow-y-auto');
+            if (googleDiv) {
+                googleDiv.remove();
+                triggerBypass('captcha');
+            }
+
+            // Find and click GTD Button
+            const GTDiv = document.querySelector('div.button.large.accessBtn.pos-relative');
+            if (GTDiv && totalDiv < 3) {
+                if (GTDiv.classList.contains("button-disabled")) {
+                    GTDiv.classList.remove("button-disabled");
+                }
                 try {
-                    const nodeId = node.id;
-                    const nodeSendMessage = node.sendMessage;
-
-                    console.log('[Work.ink] Processing ID:', nodeId);
-
-                    switch (nodeId) {
-                        case 22: // Announcement
-                            nodeSendMessage.call(node, { event: 'read' });
-                            await sleep(500);
-                            if (typeof node.setDone === 'function') {
-                                node.setDone();
-                            } else {
-                                nodeSendMessage.call(node, { event: 'done' });
-                            }
-                            break;
-
-                        case 23: // Installer
-                        case 27: // Buff Desktop
-                        case 28: // Buff Mobile
-                        case 32: // Nord VPN
-                        case 34: // Norton Antivirus
-                        case 40: // Install App
-                        case 60: // LDPlayer
-                        case 62: // On That Ass
-                        case 65: // Lenme
-                        case 70: // Gauthai
-                        case 71: // External Articles
-                            nodeSendMessage.call(node, { event: 'start' });
-                            await sleep(300);
-                            nodeSendMessage.call(node, { event: 'installClicked' });
-                            await sleep(500);
-                            if (typeof node.setDone === 'function') {
-                                node.setDone();
-                            } else {
-                                nodeSendMessage.call(node, { event: 'done' });
-                            }
-                            break;
-
-                        case 25: // Opera GX
-                            nodeSendMessage.call(node, { event: 'start' });
-                            await sleep(300);
-                            nodeSendMessage.call(node, { event: 'installClicked' });
-
-                            fetch('/_api/v2/affiliate/operaGX', { method: 'GET', mode: 'no-cors' }).catch(() => {});
-                            setTimeout(() => {
-                                fetch('https://work.ink/_api/v2/callback/operaGX', {
-                                    method: 'POST',
-                                    mode: 'no-cors',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ noteligible: true })
-                                }).catch(() => {});
-                            }, 2000);
-
-                            await sleep(3000);
-                            if (typeof node.setDone === 'function') {
-                                node.setDone();
-                            } else {
-                                nodeSendMessage.call(node, { event: 'done' });
-                            }
-                            break;
-
-                        case 29: // Browser Extension 2
-                        case 36: // Lume Browser Android
-                        case 57: // BetterDeals Extension
-                            nodeSendMessage.call(node, { event: 'installed' });
-                            await sleep(500);
-                            if (typeof node.setDone === 'function') {
-                                node.setDone();
-                            } else {
-                                nodeSendMessage.call(node, { event: 'done' });
-                            }
-                            break;
-
-                        default:
-                            console.log('[Work.ink] Unknown monetization ID:', nodeId);
-                            nodeSendMessage.call(node, { event: 'read' });
-                            await sleep(200);
-                            nodeSendMessage.call(node, { event: 'start' });
-                            await sleep(200);
-                            nodeSendMessage.call(node, { event: 'installClicked' });
-                            await sleep(200);
-                            nodeSendMessage.call(node, { event: 'installed' });
-                            await sleep(200);
-                            if (typeof node.setDone === 'function') {
-                                node.setDone();
-                            } else {
-                                nodeSendMessage.call(node, { event: 'done' });
-                            }
-                            break;
-                    }
-
-                    console.log('[Work.ink] Completed ID:', nodeId);
+                    GTDiv.click();
+                    totalDiv++;
                 } catch (e) {
-                    console.error('[Work.ink] Failed to process node:', node.id, e);
                 }
+            }else if (totalDiv >= 3) {
+                return;
+            } else if (!GTDiv) {
             }
 
-            console.log('[Work.ink] All monetizations bypassed');
-        }
+            // Continue checking
+            setTimeout(handleUIElements, 1);
+        };
 
         function createSendMessage() {
             return function (...args) {
                 const packet_type = args[0];
                 const packet_data = args[1];
-
-                if (packet_type !== types.pi) {
-                    console.log('[Work.ink] Message sent:', packet_type, packet_data);
-                }
-
-                const captchaResponses = [types.tr, types.hr, types.rr];
-                for (let i = 0; i < captchaResponses.length; i++) {
-                    const captchaResponse = captchaResponses[i];
+                log.method('Message sent:', packet_type, packet_data);
+                const captchaResponses = [
+                    types.tr,
+                    types.hr,
+                    types.rr
+                ]
+                for (let i = 0; i < captchaResponses.length; i++){
+                    const captchaResponse = captchaResponses[i]
                     if (packet_type === captchaResponse) {
-                        triggerBypass('captcha');
-                        if (document.head) document.head.remove();
-                        if (document.body) document.body.remove();
+                       handleUIElements();
                     }
                 }
-
                 return sendMessage.apply(this, args);
             };
         }
@@ -567,38 +632,33 @@
         function createLinkInfo() {
             return async function (...args) {
                 const [info] = args;
-                LinkInfo = info;
-                console.log('[Work.ink] Link info:', info);
-
-                spoofWorkink();
-
+                log.info('Link info:', info);
+                if (sessionController.linkInfo.socials.length > 0){
+                    spoofWorkink();
+                }
                 try {
                     Object.defineProperty(info, 'isAdblockEnabled', {
                         get: () => false,
-                        set: () => {},
+                        set: () => { },
                         configurable: false,
                         enumerable: true
                     });
                 } catch (e) {
-                    console.error('[Work.ink] Failed to override adblock:', e);
+                    log.error('Failed to override adblock detection:', e);
                 }
-
-                return LinkInfo ? LinkInfo.apply(this, args) : undefined;
+                return LinkInfo.apply(this, args);
             };
         }
 
         function redirect(url) {
-            // Extract destination URL and redirect back to Valex with token
-            console.log('[Work.ink] Redirecting to:', url);
             window.location.href = url;
         }
 
         function startCountdown(url, waitLeft) {
-            console.log('[Work.ink] Starting countdown:', waitLeft, 'seconds');
             const interval = setInterval(() => {
                 waitLeft -= 1;
                 if (waitLeft > 0) {
-                    console.log('[Work.ink] Countdown:', waitLeft);
+                    log.debug(waitLeft, 'seconds remaining...');
                 } else {
                     clearInterval(interval);
                     redirect(url);
@@ -610,20 +670,20 @@
             return async function (...args) {
                 const [data] = args;
                 destinationReceived = true;
-                console.log("[Work.ink] Destination received:", data);
+                log.info("Link Destination: ", data)
 
-                let waitTimeSeconds = 3;
+                let waitTimeSeconds = 12;
+                const url = location.href;
 
                 if (!destinationProcessed) {
                     destinationProcessed = true;
                     if (waitTimeSeconds <= 0) {
-                        redirect(data.url);
+                        redirect(data.url)
                     } else {
                         startCountdown(data.url, waitTimeSeconds);
                     }
                 }
-
-                return LinkDestination ? LinkDestination.apply(this, args) : undefined;
+                return LinkDestination.apply(this, args);
             };
         }
 
@@ -634,7 +694,9 @@
 
             if (!send.fn || !info.fn || !dest.fn) return;
 
-            console.log('[Work.ink] Methods found:', { send: send.name, info: info.name, dest: dest.name });
+            log.method('Send Message:', send)
+            log.method('Link Info:', info)
+            log.method('Link Destination:', dest)
 
             sendMessage = send.fn;
             LinkInfo = info.fn;
@@ -657,7 +719,7 @@
                     configurable: true
                 });
             } catch (e) {
-                console.error('[Work.ink] Failed to setup proxies:', e);
+                log.error('Failed to setup proxies:', e);
             }
         }
 
@@ -671,7 +733,7 @@
             ) {
                 sessionController = value;
                 setupProxies();
-                console.log('[Work.ink] Controller detected');
+                log.debug('Controller detected:', sessionController);
             }
             return Reflect.set(target, prop, value);
         }
@@ -734,7 +796,7 @@
                             if (success) {
                                 intercepted = true;
                                 Promise.all = origPromiseAll;
-                                console.log('[Work.ink] Kit intercepted');
+                                log.debug('Kit ready', created, app);
                             }
                             resolve([created, app, ...args]);
                         });
@@ -744,61 +806,6 @@
             };
         }
 
-        // Block ads
-        window.googletag = { cmd: [], _loaded_: true };
-
-        const blockedClasses = [
-            "adsbygoogle", "adsense-wrapper", "inline-ad", "gpt-billboard-container",
-            "[&:not(:first-child)]:mt-12", "lg:block", "linkcard", "linklist",
-            "svelte-1xnqd8c", "svelte-1ao8oou", "svelte-1i15zsk",
-            "qc-cmp2-container", "roundedDotChatButton"
-        ];
-
-        const blockedIds = [
-            "billboard-1", "billboard-2", "billboard-3",
-            "sidebar-ad-1", "skyscraper-ad-1"
-        ];
-
         setupInterception();
-
-        const ob = new MutationObserver(mutations => {
-            for (const m of mutations) {
-                for (const node of m.addedNodes) {
-                    if (node.nodeType === 1) {
-                        blockedClasses.forEach((cls) => {
-                            if (node.classList?.contains(cls)) {
-                                node.remove();
-                            }
-                            node.querySelectorAll?.(`.${CSS.escape(cls)}`).forEach((el) => {
-                                el.remove();
-                            });
-                        });
-
-                        blockedIds.forEach((id) => {
-                            if (node.id === id) {
-                                node.remove();
-                            }
-                            node.querySelectorAll?.(`#${id}`).forEach((el) => {
-                                el.remove();
-                            });
-                        });
-
-                        // Auto-click destination button
-                        if (node.matches('.button.large.accessBtn.pos-relative') && node.textContent.includes('Go To Destination')) {
-                            node.click();
-                        } else {
-                            node.querySelectorAll?.('.button.large.accessBtn.pos-relative').forEach(btn => {
-                                if (btn.textContent.includes('Go To Destination')) {
-                                    btn.click();
-                                }
-                            });
-                        }
-                    }
-                }
-            }
-        });
-
-        ob.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
     }
-
 })();
