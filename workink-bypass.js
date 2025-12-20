@@ -135,7 +135,9 @@
                     }
                 })();
             } else {
-                handleMonetizations();
+                handleMonetizations().then(() => {
+                    sendMessage.call(sessionController, types.os, {});
+                });
             }
 
             function injectBrowserExtensionSupport() {
@@ -267,6 +269,48 @@
             }
         }
 
+        let totalDiv = 0;
+
+        function handleUIElements(){
+            // Check and remove Access Options Div
+            const accessDiv = document.querySelector('div.bg-white.rounded-2xl.w-full.max-w-md.relative.shadow-2xl.animate-fade-in');
+            if (accessDiv) {
+                accessDiv.remove();
+            }
+
+            // Check and remove Modal Div
+            const modalDiv = document.querySelector('div.fixed.inset-0.bg-black\\/50.backdrop-blur-sm.flex.items-center.justify-center.p-4.main-modal.svelte-9kfsb0');
+            if (modalDiv) {
+                modalDiv.remove();
+            }
+
+            // Check and remove Google Div
+            const googleDiv = document.querySelector('div.fixed.top-16.left-0.right-0.bottom-0.bg-white.z-40.overflow-y-auto');
+            if (googleDiv) {
+                googleDiv.remove();
+                triggerBypass('captcha');
+            }
+
+            // Find and click GTD Button
+            const GTDiv = document.querySelector('div.button.large.accessBtn.pos-relative');
+            if (GTDiv && totalDiv < 3) {
+                if (GTDiv.classList.contains("button-disabled")) {
+                    GTDiv.classList.remove("button-disabled");
+                }
+                try {
+                    GTDiv.click();
+                    totalDiv++;
+                } catch (e) {
+                }
+            }else if (totalDiv >= 3) {
+                return;
+            } else if (!GTDiv) {
+            }
+
+            // Continue checking
+            setTimeout(handleUIElements, 1);
+        };
+
         function createSendMessage() {
             return function (...args) {
                 const packet_type = args[0];
@@ -280,7 +324,15 @@
                 for (let i = 0; i < captchaResponses.length; i++){
                     const captchaResponse = captchaResponses[i]
                     if (packet_type === captchaResponse) {
-                        triggerBypass('captcha');
+                        handleUIElements();
+                    }
+                }
+                if (packet_type === types.kk) {
+                    const verifyForm = document.querySelector('form input[maxlength="6"]')?.closest('form');
+                    if (verifyForm) {
+                        const submitBtn = verifyForm.querySelector('button[type="submit"]');
+                        if (submitBtn) submitBtn.disabled = false;
+                        setTimeout(() => triggerBypass('keyapp'), 1000);
                     }
                 }
                 return sendMessage.apply(this, args);
