@@ -98,8 +98,8 @@
                 spoofWorkink();
                 setTimeout(keepSpoofing, 1000);
             }
-            keepSpoofing();
-            //spoofWorkink();
+            //keepSpoofing();
+            spoofWorkink();
         }
 
         function spoofWorkink() {
@@ -359,10 +359,6 @@
             };
         }
 
-        function redirect(url) {
-            window.location.href = url;
-        }
-
         function startCountdown(url, waitLeft) {
             const interval = setInterval(() => {
                 waitLeft -= 1;
@@ -370,7 +366,7 @@
                     log.debug(waitLeft, 'seconds remaining...');
                 } else {
                     clearInterval(interval);
-                    redirect(url);
+                    window.location.replace(url);
                 }
             }, 1000);
         }
@@ -386,11 +382,7 @@
 
                 if (!destinationProcessed) {
                     destinationProcessed = true;
-                    if (waitTimeSeconds <= 0) {
-                        redirect(data.url)
-                    } else {
-                        startCountdown(data.url, waitTimeSeconds);
-                    }
+                    startCountdown(data.url, waitTimeSeconds);
                 }
                 return LinkDestination.apply(this, args);
             };
