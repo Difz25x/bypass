@@ -1,4 +1,4 @@
-(function () {
+(function() {
     'use strict';
 
     const log = {
@@ -19,8 +19,308 @@
 
     const host = location.hostname;
 
-    if (host.includes("work.ink")) {
+    // Route to appropriate handler
+    if (host.includes("valex.io")) {
+        handleValex();
+    } else if (host.includes("work.ink")) {
         handleWorkInk();
+    }
+
+    // ============================================
+    // VALEX HANDLER
+    // ============================================
+    function handleValex() {
+        const COLORS = {
+            info: 'color: #00ff00; font-weight: bold; font-size: 13px',
+            error: 'color: #ff0000; font-weight: bold; font-size: 13px',
+            success: 'color: #00ffff; font-weight: bold; font-size: 13px',
+        };
+
+        let statusBox = null;
+
+        const createStatusBox = () => {
+            if (statusBox) return statusBox;
+
+            statusBox = document.createElement('div');
+            statusBox.id = 'valex-status-box';
+            statusBox.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px 25px;
+                border-radius: 12px;
+                font-family: 'Segoe UI', sans-serif;
+                font-size: 14px;
+                z-index: 999999;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+                min-width: 250px;
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255,255,255,0.1);
+            `;
+            document.body.appendChild(statusBox);
+            return statusBox;
+        };
+
+        const updateStatusBox = (content) => {
+            const box = createStatusBox();
+            box.innerHTML = content;
+        };
+
+        const setupAntiDetection = () => {
+            const suspiciousVars = [
+                'LUPERLY', 'bypassCheckpoint', 'autoSolve', 'keySystemBypass',
+                'fakeReferrer', 'spoofReferrer', 'checkpointBypass'
+            ];
+
+            suspiciousVars.forEach(varName => {
+                try {
+                    delete window[varName];
+                    delete window[varName.toLowerCase()];
+                    delete window[varName.toUpperCase()];
+                } catch(e) {}
+            });
+
+            if (window.console._log) delete window.console._log;
+            if (window.console._originalLog) delete window.console._originalLog;
+
+            const nativeToString = Function.prototype.toString;
+            const fakeNative = function() {
+                if (this === Function.prototype.toString) {
+                    return 'function toString() { [native code] }';
+                }
+                return nativeToString.apply(this, arguments);
+            };
+
+            try {
+                Object.defineProperty(Function.prototype, 'toString', {
+                    value: fakeNative,
+                    writable: true,
+                    configurable: true
+                });
+            } catch(e) {}
+        };
+
+        setupAntiDetection();
+
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        const generateIntegrityHash = (step, progress, timestamp) => {
+            const SYSTEM_SALT = "valex_ks_2024_" + window.location.origin;
+            const data = `${step}:${progress}:${timestamp}:${SYSTEM_SALT}`;
+            let hash = 0;
+            for (let i = 0; i < data.length; i++) {
+                hash = (hash << 5) - hash + data.charCodeAt(i);
+                hash &= hash;
+            }
+            return hash.toString(36);
+        };
+
+        const updateStorage = (step, progress) => {
+            const timestamp = Date.now();
+            const hash = generateIntegrityHash(step, progress, timestamp);
+
+            sessionStorage.setItem('keySystemStep', step.toString());
+            sessionStorage.setItem('keySystemProgress', progress.toString());
+            sessionStorage.setItem('keySystemIntegrityTs', timestamp.toString());
+            sessionStorage.setItem('keySystemIntegrityHash', hash);
+        };
+
+        const findCheckpointButton = () => {
+            const buttons = document.querySelectorAll('button');
+            for (let btn of buttons) {
+                const text = btn.textContent.trim();
+                if (text.includes('Complete Checkpoint') || text.includes('Complete checkpoint')) {
+                    return btn;
+                }
+            }
+            return null;
+        };
+
+        const updateValexStatus = (status, step = null, message = '') => {
+            const currentStep = step !== null ? step : parseInt(sessionStorage.getItem('keySystemStep') || '0');
+            const progress = currentStep === 0 ? 0 : currentStep === 1 ? 50 : currentStep === 2 ? 100 : 100;
+
+            let statusEmoji = '⏳';
+            let statusColor = '#ffa500';
+
+            if (status === 'complete') {
+                statusEmoji = '✅';
+                statusColor = '#00ff00';
+            } else if (status === 'error') {
+                statusEmoji = '❌';
+                statusColor = '#ff0000';
+            } else if (status === 'processing') {
+                statusEmoji = '🔄';
+                statusColor = '#00bfff';
+            }
+
+            updateStatusBox(`
+                <div style="text-align: center;">
+                    <div style="font-size: 14px; margin-bottom: 12px;">
+                        🔓 Valex + Work.ink Bypass
+                    </div>
+                    <div style="font-size: 13px; margin-bottom: 10px; color: ${statusColor};">
+                        ${statusEmoji} ${status.toUpperCase()}
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; margin: 10px 0;">
+                        <div style="font-size: 12px; opacity: 0.8; margin-bottom: 5px;">
+                            Progress
+                        </div>
+                        <div style="font-size: 24px; font-weight: bold; color: #fff;">
+                            ${currentStep}/3
+                        </div>
+                        <div style="width: 100%; background: rgba(0,0,0,0.3); height: 6px; border-radius: 3px; margin-top: 8px; overflow: hidden;">
+                            <div style="width: ${progress}%; background: linear-gradient(90deg, #00ff00, #00bfff); height: 100%; transition: width 0.3s ease;"></div>
+                        </div>
+                    </div>
+                    ${message ? `<div style="font-size: 11px; opacity: 0.7; margin-top: 8px;">${message}</div>` : ''}
+                </div>
+            `);
+        };
+
+        const completeCheckpoint = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tokenFromUrl = urlParams.get('token');
+
+            if (tokenFromUrl) {
+                console.log('%c[Valex] Token detected from Work.ink:', COLORS.success, tokenFromUrl);
+                sessionStorage.setItem('workinkToken', tokenFromUrl);
+
+                const newUrl = new URL(window.location.href);
+                newUrl.searchParams.delete('token');
+                window.history.replaceState({}, '', newUrl.toString());
+            }
+
+            const workinkToken = sessionStorage.getItem('workinkToken');
+            const linkOpened = sessionStorage.getItem('keySystemLinkOpened');
+            const openTimestamp = parseInt(sessionStorage.getItem('keySystemLinkOpenTimestamp') || '0');
+            const timeSpent = Date.now() - openTimestamp;
+
+            const lastVisited = localStorage.getItem('lastLinkVisited') || '';
+            const isReturningFromCheckpoint = lastVisited.includes('work.ink');
+
+            if (workinkToken || (linkOpened === 'true' && isReturningFromCheckpoint && timeSpent >= 15000)) {
+                const currentStep = parseInt(sessionStorage.getItem('keySystemStep') || '0');
+
+                updateValexStatus('processing', currentStep, 'Completing checkpoint...');
+
+                try {
+                    const navToken = sessionStorage.getItem(`keySystemNavToken_${currentStep}`) || `nav_${Date.now()}`;
+                    const challenge = sessionStorage.getItem(`keySystemChallenge_${currentStep}`) || `challenge_${Date.now()}`;
+
+                    console.log('%c[Valex] Completing with token:', COLORS.info, workinkToken);
+
+                    const response = await fetch('/api/key-system/checkpoint', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-key-scope': window.location.hostname.includes('ext') ? 'ext' : 'key',
+                            'Accept': 'application/json'
+                        },
+                        cache: 'no-store',
+                        body: JSON.stringify({
+                            action: 'complete',
+                            stepIndex: currentStep,
+                            token: workinkToken,
+                            navigationToken: navToken,
+                            clientReferrer: 'https://work.ink/',
+                            challenge: challenge
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        sessionStorage.removeItem('workinkToken');
+                        localStorage.removeItem('lastLinkVisited');
+                        localStorage.removeItem('lastLinkVisitTime');
+
+                        const newStep = currentStep + 1;
+                        const newProgress = newStep === 1 ? 50 : newStep === 2 ? 100 : 0;
+                        updateStorage(newStep, newProgress);
+
+                        if (newStep >= 3) {
+                            updateValexStatus('complete', 3, 'All checkpoints done! Reloading...');
+                            window.location.reload();
+                            return true;
+                        }
+
+                        updateValexStatus('complete', newStep, 'Checkpoint completed! Reloading...');
+                        window.location.reload();
+                        return true;
+                    } else {
+                        updateValexStatus('error', currentStep, result.message || 'Failed to complete');
+                    }
+                } catch (error) {
+                    updateValexStatus('error', null, error.message);
+                }
+            }
+
+            return false;
+        };
+
+        const clickCheckpointButton = async () => {
+            const button = findCheckpointButton();
+
+            if (!button) {
+                const allComplete = sessionStorage.getItem('keySystemAllCheckpointsComplete');
+                if (allComplete === 'true') {
+                    updateValexStatus('complete', 3, 'Complete Turnstile captcha');
+                    return;
+                }
+
+                updateValexStatus('waiting', null, 'Looking for button...');
+                await sleep(100);
+                return clickCheckpointButton();
+            }
+
+            if (button.disabled) {
+                updateValexStatus('waiting', null, 'Button disabled, waiting...');
+                await sleep(100);
+                return clickCheckpointButton();
+            }
+
+            const currentStep = parseInt(sessionStorage.getItem('keySystemStep') || '0');
+
+            updateValexStatus('processing', currentStep, `Clicking checkpoint ${currentStep + 1}...`);
+
+            // Mark that we're opening the link
+            sessionStorage.setItem('keySystemLinkOpened', 'true');
+            sessionStorage.setItem('keySystemLinkOpenTimestamp', Date.now().toString());
+
+            button.click();
+
+            updateValexStatus('processing', currentStep, 'Redirecting to Work.ink...');
+        };
+
+        const handleMainPage = async () => {
+            console.log('%c[Valex] Starting handler...', COLORS.info);
+
+            const currentStep = parseInt(sessionStorage.getItem('keySystemStep') || '0');
+            updateValexStatus('waiting', currentStep, 'Initializing...');
+
+            const completed = await completeCheckpoint();
+
+            if (!completed) {
+                updateValexStatus('waiting', currentStep, 'Ready to start...');
+                await clickCheckpointButton();
+            }
+        };
+
+        const init = async () => {
+            console.log('%c=== Valex Auto Bypass ===', COLORS.info);
+            setupAntiDetection();
+            await handleMainPage();
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     }
 
     function handleWorkInk() {
@@ -135,9 +435,7 @@
                     }
                 })();
             } else {
-                handleMonetizations().then(() => {
-                    sendMessage.call(sessionController, types.os, {});
-                });
+                handleMonetizations();
             }
 
             function injectBrowserExtensionSupport() {
@@ -172,7 +470,8 @@
                     try {
                         const nodeId = node.id;
                         const nodeSendMessage = node.sendMessage;
-                        log.info(`Processing monetization [${i+1}/${nodes.length}]:`, node);
+
+                        log.info('Processing ID:', nodeId);
 
                         switch (nodeId) {
                             case 22: // Announcement
@@ -268,7 +567,6 @@
                 return new Promise(resolve => setTimeout(resolve, ms));
             }
         }
-
         let totalDiv = 0;
 
         function handleUIElements(){
@@ -324,16 +622,7 @@
                 for (let i = 0; i < captchaResponses.length; i++){
                     const captchaResponse = captchaResponses[i]
                     if (packet_type === captchaResponse) {
-                        handleUIElements();
-                        //triggerBypass('captcha');
-                    }
-                }
-                if (packet_type === types.kk) {
-                    const verifyForm = document.querySelector('form input[maxlength="6"]')?.closest('form');
-                    if (verifyForm) {
-                        const submitBtn = verifyForm.querySelector('button[type="submit"]');
-                        if (submitBtn) submitBtn.disabled = false;
-                        setTimeout(() => triggerBypass('keyapp'), 1000);
+                       handleUIElements();
                     }
                 }
                 return sendMessage.apply(this, args);
@@ -344,7 +633,9 @@
             return async function (...args) {
                 const [info] = args;
                 log.info('Link info:', info);
-                spoofWorkink();
+                if (sessionController.linkInfo.socials.length > 0){
+                    spoofWorkink();
+                }
                 try {
                     Object.defineProperty(info, 'isAdblockEnabled', {
                         get: () => false,
@@ -359,6 +650,10 @@
             };
         }
 
+        function redirect(url) {
+            window.location.href = url;
+        }
+
         function startCountdown(url, waitLeft) {
             const interval = setInterval(() => {
                 waitLeft -= 1;
@@ -366,7 +661,7 @@
                     log.debug(waitLeft, 'seconds remaining...');
                 } else {
                     clearInterval(interval);
-                    window.location.replace(url);
+                    redirect(url);
                 }
             }, 1000);
         }
@@ -377,12 +672,16 @@
                 destinationReceived = true;
                 log.info("Link Destination: ", data)
 
-                let waitTimeSeconds = 12;
+                let waitTimeSeconds = 2;
                 const url = location.href;
 
                 if (!destinationProcessed) {
                     destinationProcessed = true;
-                    startCountdown(data.url, waitTimeSeconds);
+                    if (waitTimeSeconds <= 0) {
+                        redirect(data.url)
+                    } else {
+                        startCountdown(data.url, waitTimeSeconds);
+                    }
                 }
                 return LinkDestination.apply(this, args);
             };
@@ -508,23 +807,5 @@
         }
 
         setupInterception();
-
-        const hide = 'W2lkXj0iYnNhLXpvbmVfIl0sCmRpdi5maXhlZC5pbnNldC0wLmJnLWJsYWNrXC81MC5iYWNrZHJvcC1ibHVyLXNtLApkaXYuZG9uZS1iYW5uZXItY29udGFpbmVyLnN2ZWx0ZS0xeWptazFnLAppbnM6bnRoLW9mLXR5cGUoMSksCmRpdjpudGgtb2YtdHlwZSg5KSwKZGl2LmZpeGVkLnRvcC0xNi5sZWZ0LTAucmlnaHQtMC5ib3R0b20tMC5iZy13aGl0ZS56LTQwLm92ZXJmbG93LXktYXV0bywKcFtzdHlsZV0sCi5hZHNieWdvb2dsZSwKLmFkc2Vuc2Utd3JhcHBlciwKLmlubGluZS1hZCwKLmdwdC1iaWxsYm9hcmQtY29udGFpbmVyLAojYmlsbGJvYXJkLTEsCiNiaWxsYm9hcmQtMiwKI2JpbGxib2FyZC0zLAojc2lkZWJhci1hZC0xLAojc2t5c2NyYXBlci1hZC0xLApkaXYubGdcOmJsb2NrIHsKICAgIGRpc3BsYXk6IG5vbmUgIWltcG9ydGFudDsKfQ==';
-
-        const style = document.createElement('style');
-        style.textContent = (typeof atob === 'function') ? atob(hide) : (Buffer ? Buffer.from(hide, 'base64').toString() : '');
-        (document.head || document.documentElement).appendChild(style);
-
-        const ob = new MutationObserver(mutations => {
-            for (const m of mutations) {
-                for (const node of m.addedNodes) {
-                    if (node.nodeType !== 1) continue;
-
-                    if (node.classList?.contains('adsbygoogle')) node.remove();
-                    node.querySelectorAll?.('.adsbygoogle').forEach(el => el.remove());
-                }
-            }
-        });
-        ob.observe(document.documentElement, { childList: true, subtree: true });
     }
 })();
