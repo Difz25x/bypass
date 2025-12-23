@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Valex Bypass
 // @namespace    http://tampermonkey.net/
-// @version      1.0.2.3
-// @description  Bypass Volcano and Work.ink links with unified panel
+// @version      1.0.2.4
+// @description  Bypass Valex and Work.ink links
 // @author       Difz25x
 // @match        *://*.valex.io/*
 // @match        *://work.ink/3t0/*
