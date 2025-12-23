@@ -2,9 +2,8 @@
 // @name         Volcano & Work.ink Bypass
 // @namespace    http://tampermonkey.net/
 // @version      1.1.4.2
-// @description  Bypass Volcano and Work.ink links with unified panel
+// @description  Bypass Work.ink links with unified panel
 // @author       Difz25x
-// @match        https://key.volcano.wtf/*
 // @match        https://work.ink/*
 // @run-at       document-start
 // @grant        unsafeWindow
