@@ -3,142 +3,101 @@
     let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, r => r]);
     webpackChunkdiscord_app.pop();
 
-    let ApplicationStreamingStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.getStreamerActiveStreamMetadata)?.exports?.Z;
-    let RunningGameStore, QuestsStore, ChannelStore, GuildChannelStore, FluxDispatcher, api;
+    const findModule = (filter) => {
+        for (const i in wpRequire.c) {
+            const m = wpRequire.c[i].exports;
+            if (!m) continue;
+            const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
+            for (const t of targets) {
+                try { if (filter(t)) return t; } catch (e) { }
+            }
+        }
+    };
 
-    if(!ApplicationStreamingStore) {
-        ApplicationStreamingStore = Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getStreamerActiveStreamMetadata).exports.A;
-        RunningGameStore = Object.values(wpRequire.c).find(x => x?.exports?.Ay?.getRunningGames).exports.Ay;
-        QuestsStore = Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getQuest).exports.A;
-        ChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getAllThreadsForParent).exports.A;
-        GuildChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.Ay?.getSFWDefaultChannel).exports.Ay;
-        FluxDispatcher = Object.values(wpRequire.c).find(x => x?.exports?.h?.__proto__?.flushWaitQueue).exports.h;
-        api = Object.values(wpRequire.c).find(x => x?.exports?.Bo?.get).exports.Bo;
-    } else {
-        RunningGameStore = Object.values(wpRequire.c).find(x => x?.exports?.ZP?.getRunningGames).exports.ZP;
-        QuestsStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.getQuest).exports.Z;
-        ChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.getAllThreadsForParent).exports.Z;
-        GuildChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.ZP?.getSFWDefaultChannel).exports.ZP;
-        FluxDispatcher = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.flushWaitQueue).exports.Z;
-        api = Object.values(wpRequire.c).find(x => x?.exports?.tn?.get).exports.tn;	
-    }
+    let ApplicationStreamingStore, RunningGameStore, QuestsStore, ChannelStore, GuildChannelStore, FluxDispatcher, api;
+    try {
+        ApplicationStreamingStore = findModule(m => m.getStreamerActiveStreamMetadata);
+        RunningGameStore = findModule(m => m.getRunningGames);
+        QuestsStore = findModule(m => m.getQuest && (m.quests || m.getQuests));
+        ChannelStore = findModule(m => m.getSortedPrivateChannels || m.getAllThreadsForParent);
+        GuildChannelStore = findModule(m => m.getSFWDefaultChannel);
+        FluxDispatcher = findModule(m => m.flushWaitQueue);
+        api = findModule(m => m.get && m.post && m.put);
+    } catch (e) { console.error("[TIREX] Failed to get Discord module."); return; }
 
     const supportedTasks = ["WATCH_VIDEO", "PLAY_ON_DESKTOP", "STREAM_ON_DESKTOP", "PLAY_ACTIVITY", "WATCH_VIDEO_ON_MOBILE"];
-    let quests = [...QuestsStore.quests.values()].filter(x => x.userStatus?.enrolledAt && !x.userStatus?.completedAt && new Date(x.config.expiresAt).getTime() > Date.now());
+    const rawQuests = QuestsStore?.quests;
+    let quests = (rawQuests instanceof Map ? Array.from(rawQuests.values()) : Object.values(rawQuests || {}))
+        .filter(x => x.userStatus?.enrolledAt && !x.userStatus?.completedAt && new Date(x.config.expiresAt).getTime() > Date.now());
 
-    if(quests.length === 0) {
-        console.log("[TIREX] No uncompleted quests found.");
-        return;
-    }
+    if (quests.length === 0) return console.log("[TIREX] All quests are completed!");
 
     let isApp = typeof DiscordNative !== "undefined";
-    console.log(`[TIREX] Found ${quests.length} quests. Starting parallel execution...`);
+    console.log(`[TIREX] Executing ${quests.length} quest... 🦖🔥`);
 
     quests.forEach(quest => {
-        const applicationId = quest.config.application.id;
-        const applicationName = quest.config.application.name;
+
+        const pid = Math.floor(Math.random() * 30000) + 1000;
+        const appId = quest.config.application.id;
         const questName = quest.config.messages.questName;
         const taskConfig = quest.config.taskConfig ?? quest.config.taskConfigV2;
         const taskName = supportedTasks.find(x => taskConfig.tasks[x] != null);
-        
-        if (!taskName) return;
-
         const secondsNeeded = taskConfig.tasks[taskName].target;
         let secondsDone = quest.userStatus?.progress?.[taskName]?.value ?? 0;
-        const pid = Math.floor(Math.random() * 30000) + 1000;
+        if (!taskName) return;
 
-        if(taskName === "WATCH_VIDEO" || taskName === "WATCH_VIDEO_ON_MOBILE") {
-            const enrolledAt = new Date(quest.userStatus.enrolledAt).getTime();
-            (async () => {
-                console.log(`[TIREX] Spoofing video: ${questName}`);
-                while(secondsDone < secondsNeeded) {
-                    const timestamp = Math.min(secondsNeeded, secondsDone + 7 + Math.random());
-                    const res = await api.post({url: `/quests/${quest.id}/video-progress`, body: {timestamp}});
-                    secondsDone = timestamp;
+        if (taskName.includes("VIDEO")) {
+            let fn = async () => {
+                while (secondsDone < secondsNeeded) {
+                    secondsDone += 7;
+                    const res = await api.post({
+                        url: `/quests/${quest.id}/video-progress`,
+                        body: { timestamp: Math.min(secondsNeeded, secondsDone + Math.random()) }
+                    });
+                    console.log(`[TIREX] [${taskName}] Progress: ${Math.min(secondsDone, secondsNeeded)}/${secondsNeeded}`);
                     if (res.body.completed_at) break;
-                    await new Promise(r => setTimeout(r, 15000));
+                    await new Promise(r => setTimeout(r, 1500));
                 }
-                console.log(`[TIREX] Quest completed: ${questName}`);
-            })();
-        } 
-        
-        else if(taskName === "PLAY_ON_DESKTOP") {
-            if(!isApp) {
-                console.log(`[TIREX] ${questName} requires Discord Desktop App.`);
-            } else {
-                api.get({url: `/applications/public?application_ids=${applicationId}`}).then(res => {
-                    const appData = res.body[0];
-                    const exeName = appData.executables.find(x => x.os === "win32").name.replace(">","");
-                    const fakeGame = {
-                        cmdLine: `C:\\Program Files\\${appData.name}\\${exeName}`,
-                        exeName,
-                        exePath: `c:/program files/${appData.name.toLowerCase()}/${exeName}`,
-                        id: applicationId,
-                        name: appData.name,
-                        pid: pid,
-                        pidPath: [pid],
-                        processName: appData.name,
-                        start: Date.now(),
-                    };
-                    
-                    const realGetRunningGames = RunningGameStore.getRunningGames;
-                    const realGetGameForPID = RunningGameStore.getGameForPID;
-                    
-                    RunningGameStore.getRunningGames = () => [fakeGame];
-                    RunningGameStore.getGameForPID = () => fakeGame;
-                    
-                    FluxDispatcher.dispatch({type: "RUNNING_GAMES_CHANGE", removed: [], added: [fakeGame], games: [fakeGame]});
-                    
-                    let fn = data => {
-                        let progress = quest.config.configVersion === 1 ? data.userStatus.streamProgressSeconds : Math.floor(data.userStatus.progress.PLAY_ON_DESKTOP.value);
-                        console.log(`[TIREX] ${questName} progress: ${progress}/${secondsNeeded}`);
-                        if(progress >= secondsNeeded) {
-                            RunningGameStore.getRunningGames = realGetRunningGames;
-                            RunningGameStore.getGameForPID = realGetGameForPID;
-                            FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
-                            console.log(`[TIREX] Quest completed: ${questName}`);
-                        }
-                    };
-                    FluxDispatcher.subscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
-                });
-            }
-        }
+                console.log(`[TIREX] ${taskName} Done!`);
+            };
+            fn();
+        } else if (taskName === "PLAY_ON_DESKTOP" && isApp) {
+            api.get({ url: `/applications/public?application_ids=${appId}` }).then(res => {
+                const appData = res.body[0];
+                const exeName = appData.executables.find(x => x.os === "win32").name.replace(">", "");
+                const fakeGame = {
+                    id: appId, name: appData.name, pid: pid, pidPath: [pid], start: Date.now(),
+                    exeName, exePath: `c:/program files/${appData.name.toLowerCase()}/${exeName}`
+                };
+                const realGetGames = RunningGameStore.getRunningGames;
+                RunningGameStore.getRunningGames = () => [fakeGame];
+                FluxDispatcher.dispatch({ type: "RUNNING_GAMES_CHANGE", removed: [], added: [fakeGame], games: [fakeGame] });
 
-        else if(taskName === "STREAM_ON_DESKTOP") {
-            if(!isApp) {
-                console.log(`[TIREX] ${questName} requires Discord Desktop App.`);
-            } else {
-                let realFunc = ApplicationStreamingStore.getStreamerActiveStreamMetadata;
-                ApplicationStreamingStore.getStreamerActiveStreamMetadata = () => ({ id: applicationId, pid, sourceName: null });
-                
-                let fn = data => {
-                    let progress = quest.config.configVersion === 1 ? data.userStatus.streamProgressSeconds : Math.floor(data.userStatus.progress.STREAM_ON_DESKTOP.value);
-                    console.log(`[TIREX] ${questName} progress: ${progress}/${secondsNeeded}`);
-                    if(progress >= secondsNeeded) {
-                        ApplicationStreamingStore.getStreamerActiveStreamMetadata = realFunc;
-                        FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
-                        console.log(`[TIREX] Quest completed: ${questName}`);
+                let checkProgress = (data) => {
+                    let progress = Math.floor(data.userStatus.progress[type].value);
+                    console.log(`[TIREX] [${taskName}] Progress: ${progress}/${secondsNeeded}`);
+                    if (progress >= secondsNeeded) {
+                        RunningGameStore.getRunningGames = realGetGames;
+                        FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", checkProgress);
+                        console.log(`[TIREX] ${taskName} Done!`);
                     }
                 };
-                FluxDispatcher.subscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
-            }
-        }
-
-        else if(taskName === "PLAY_ACTIVITY") {
+                FluxDispatcher.subscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", checkProgress);
+            });
+        } else if (taskName === "PLAY_ACTIVITY") {
             (async () => {
-                const channelId = ChannelStore.getSortedPrivateChannels()[0]?.id ?? Object.values(GuildChannelStore.getAllGuilds()).find(x => x != null && x.VOCAL.length > 0)?.VOCAL[0]?.channel?.id;
-                const streamKey = `call:${channelId}:1`;
-                while(true) {
-                    const res = await api.post({url: `/quests/${quest.id}/heartbeat`, body: {stream_key: streamKey, terminal: false}});
-                    const progress = res.body.progress.PLAY_ACTIVITY.value;
-                    console.log(`[TIREX] ${questName} progress: ${progress}/${secondsNeeded}`);
-                    if(progress >= secondsNeeded) {
-                        await api.post({url: `/quests/${quest.id}/heartbeat`, body: {stream_key: streamKey, terminal: true}});
+                const chId = ChannelStore.getSortedPrivateChannels()[0]?.id ?? Object.values(GuildChannelStore.getAllGuilds()).find(x => x != null && x.VOCAL.length > 0)?.VOCAL[0].channel.id;
+                const key = `call:${chId}:1`;
+                while (secondsDone < secondsNeeded) {
+                    const res = await api.post({ url: `/quests/${quest.id}/heartbeat`, body: { stream_key: key, terminal: false } });
+                    secondsDone = res.body.progress.PLAY_ACTIVITY.value;
+                    console.log(`[TIREX] [${taskName}] Progress: ${secondsDone}/${secondsNeeded}`);
+                    if (secondsDone >= secondsNeeded) {
+                        await api.post({ url: `/quests/${quest.id}/heartbeat`, body: { stream_key: key, terminal: true } });
                         break;
                     }
                     await new Promise(r => setTimeout(r, 20000));
                 }
-                console.log(`[TIREX] Quest completed: ${questName}`);
             })();
         }
     });
