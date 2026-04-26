@@ -5,7 +5,9 @@
 // @description  Bypass Work.ink links
 // @author       Difzz
 // @match        https://work.ink/*
+// @match        https://*.work.ink/*
 // @match        https://workink.net/*
+// @match        https://*.workink.net/*
 // @match        https://yub-x.net/*
 // @run-at       document-start
 // @grant        unsafeWindow
