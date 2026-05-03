@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TiRex Bypass - Last Update
 // @namespace    http://tampermonkey.net/
-// @version      1.2.6.0
+// @version      1.2.7.0
 // @description  Bypass Work.ink links
 // @author       Difzz
 // @match        https://work.ink/*
